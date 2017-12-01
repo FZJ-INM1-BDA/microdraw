@@ -713,7 +713,7 @@ var Microdraw = (function () {
 
             me.handle = null;
 
-            if( Object.keys( me.tools ).find( me.selectedTool ) ){
+            if( Object.keys( me.tools ).find( toolname => toolname === me.selectedTool ) ){
                 me.tools[me.selectedTool].mouseDown(point)
             } else {
                 switch( me.selectedTool ) {
