@@ -2145,8 +2145,9 @@ var Microdraw = (function () {
 
                 // extend Microdraw with tools
                 // load scripts dynamically since import is not currently supported by browsers                
+
                 me.loadScript('/js/tools/all')
-                    .then(()=> Object.assign(me.tools,AllTools))
+                    .then(() => ToolsAll.forEach(tool=>Object.assign(me.tools,tool)))
 
                 // Enable click on toolbar buttons
                 $("img.button").click(me.toolSelection);
