@@ -713,96 +713,90 @@ var Microdraw = (function () {
 
             me.handle = null;
 
-            switch( me.selectedTool ) {
-                case "addPoint":
-                case "deletePoint":
-                case "addRegion":
-                case "delete": {
-                    hitResult = paper.project.hitTest(point, {
-                            tolerance: me.tolerance,
-                            stroke: true,
-                            segments: true,
-                            fill: true,
-                            handles: true
-                        });
-
-                    me.newRegionFlag = false;
-                    if( hitResult ) {
-                        var i, re;
-                        for( i = 0; i < me.ImageInfo[me.currentImage].Regions.length; i += 1 ) {
-                            if( me.ImageInfo[me.currentImage].Regions[i].path === hitResult.item ) {
-                                re = me.ImageInfo[me.currentImage].Regions[i];
-                                break;
+            if( Object.keys( me.tools ).find( me.selectedTool ) ){
+                me.tools[me.selectedTool].mouseDown(point)
+            } else {
+                switch( me.selectedTool ) {
+                    case "addPoint":
+                    case "deletePoint":
+                    case "addRegion":
+                    case "delete": {
+                        hitResult = paper.project.hitTest(point, {
+                                tolerance: me.tolerance,
+                                stroke: true,
+                                segments: true,
+                                fill: true,
+                                handles: true
+                            });
+    
+                        me.newRegionFlag = false;
+                        if( hitResult ) {
+                            var i, re;
+                            for( i = 0; i < me.ImageInfo[me.currentImage].Regions.length; i += 1 ) {
+                                if( me.ImageInfo[me.currentImage].Regions[i].path === hitResult.item ) {
+                                    re = me.ImageInfo[me.currentImage].Regions[i];
+                                    break;
+                                }
                             }
+    
+                            // select path
+                            if( me.region && me.region !== re ) {
+                                me.region.path.selected = false;
+                                prevRegion = me.region;
+                            }
+                            me.selectRegion(re);
+    
+                            if( me.selectedTool === "deletePoint" ) {
+                                if( hitResult.type === 'segment' ) {
+                                    hitResult.segment.remove();
+                                    me.commitMouseUndo();
+                                }
+                            } else if( hitResult.type === 'stroke' && me.selectedTool === "addPoint" ) {
+                                me.region.path
+                                .curves[hitResult.location.index]
+                                .divide(hitResult.location);
+                                me.region.path.fullySelected = true;
+                                me.commitMouseUndo();
+                                paper.view.draw();
+                            } else if( me.selectedTool === "addRegion" ) {
+                                if( prevRegion ) {
+                                    var newPath = me.region.path.unite(prevRegion.path);
+                                    me.removeRegion(prevRegion);
+                                    me.region.path.remove();
+                                    me.region.path = newPath;
+                                    me.updateRegionList();
+                                    me.selectRegion(me.region);
+                                    paper.view.draw();
+                                    me.commitMouseUndo();
+                                    me.backToSelect();
+                                }
+                            } else if( me.selectedTool === "delete" ) {
+                                if( prevRegion ) {
+                                    var newPath = prevRegion.path.subtract(me.region.path);
+                                    me.removeRegion(prevRegion);
+                                    prevRegion.path.remove();
+                                    me.newRegion({path:newPath});
+                                    me.updateRegionList();
+                                    me.selectRegion(me.region);
+                                    paper.view.draw();
+                                    me.commitMouseUndo();
+                                    me.backToSelect();
+                                }
+                            }
+                            break;
                         }
-
-                        // select path
-                        if( me.region && me.region !== re ) {
+                        if( hitResult === null && me.region ) {
+                            //deselect paths
                             me.region.path.selected = false;
-                            prevRegion = me.region;
-                        }
-                        me.selectRegion(re);
-
-                        if( me.selectedTool === "deletePoint" ) {
-                            if( hitResult.type === 'segment' ) {
-                                hitResult.segment.remove();
-                                me.commitMouseUndo();
-                            }
-                        } else if( hitResult.type === 'stroke' && me.selectedTool === "addPoint" ) {
-                            me.region.path
-                            .curves[hitResult.location.index]
-                            .divide(hitResult.location);
-                            me.region.path.fullySelected = true;
-                            me.commitMouseUndo();
-                            paper.view.draw();
-                        } else if( me.selectedTool === "addRegion" ) {
-                            if( prevRegion ) {
-                                var newPath = me.region.path.unite(prevRegion.path);
-                                me.removeRegion(prevRegion);
-                                me.region.path.remove();
-                                me.region.path = newPath;
-                                me.updateRegionList();
-                                me.selectRegion(me.region);
-                                paper.view.draw();
-                                me.commitMouseUndo();
-                                me.backToSelect();
-                            }
-                        } else if( me.selectedTool === "delete" ) {
-                            if( prevRegion ) {
-                                var newPath = prevRegion.path.subtract(me.region.path);
-                                me.removeRegion(prevRegion);
-                                prevRegion.path.remove();
-                                me.newRegion({path:newPath});
-                                me.updateRegionList();
-                                me.selectRegion(me.region);
-                                paper.view.draw();
-                                me.commitMouseUndo();
-                                me.backToSelect();
-                            }
+                            me.region = null;
                         }
                         break;
                     }
-                    if( hitResult === null && me.region ) {
-                        //deselect paths
-                        me.region.path.selected = false;
-                        me.region = null;
-                    }
-                    break;
+                    case "rotate":
+                        me.region.origin = point;
+                        break;
+    
                 }
-                case "rotate":
-                    me.region.origin = point;
-                    break;
-
-                /**
-                 * @todo These are the tools that have been already encapsulated. When all tools will be encapsulated, the whole switch/case should be removed
-                 */
-                case "splitRegion":
-                case "drawPolygon":
-                case "drawLine":
-                case "draw":
-                case "select":
-                    me.tools[me.selectedTool].mouseDown(point);
-                    break;
             }
             paper.view.draw();
         },
