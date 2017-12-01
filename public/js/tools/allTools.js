@@ -7,11 +7,10 @@ module.exports = new Promise((resolve,reject)=>{
             .map(file=>new Promise((rs,rj)=>{
                 fs.readFile(__dirname + '/' + file,'utf-8',(err2,data)=>{
                     if(err2)rj(err2)
-                    console.log(data)
-                    rs(data.replace(/var.*?\=/,'ToolsAll[ToolsAll.length] = '))
+                    rs(data)
                 })
             })))
-            .then(arr=>resolve('var ToolsAll = [];\n'+arr.join('\n')))
+            .then(arr=>resolve(arr))
             .catch(e=>reject(e))
     })
 })

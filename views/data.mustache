@@ -60,6 +60,11 @@
                 <img class="button" id="copy"           title="Copy path"              src="img/copy.svg" />
                 <img class="button" id="paste"          title="Paste path"             src="img/paste.svg" />
             </div>
+            <hr>
+            {{#exportedToolsNames}}
+                <img class = "button" id = "{{name}}" src = "img/{{name}}.svg" />
+            {{/exportedToolsNames}}
+            <hr>
             <div class="buttonGroup">
                 <img class="button" id="save"           title="Save annotations"       src="img/save.svg" />
                 <img class="button" id="screenshot"     title="Screenshot"             src="img/screenshot.svg" />

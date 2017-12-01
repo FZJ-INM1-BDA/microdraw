@@ -2145,7 +2145,7 @@ var Microdraw = (function () {
 
                 // extend Microdraw with tools
                 // load scripts dynamically since import is not currently supported by browsers                
-
+                me.tools = {}
                 me.loadScript('/js/tools/all')
                     .then(() => ToolsAll.forEach(tool=>Object.assign(me.tools,tool)))
 

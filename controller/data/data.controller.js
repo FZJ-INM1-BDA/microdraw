@@ -14,6 +14,7 @@ function data(req, res) {
     res.render('data', {
         title: 'MicroDraw::Data',
         params: JSON.stringify(req.query),
+        exportedToolsNames : req.exportedToolsNames.map(name=>({name:name})),
         login: login
     });
 }

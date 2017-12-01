@@ -175,18 +175,23 @@ app.get('/', function (req, res) { // /auth/github
 
 app.use('/data', (req, res, next) => {
     req.warningGithubConfig = warningGithubConfig;
+    req.exportedToolsNames = exportedToolsNames
     next();
 }, require('./controller/data/'));
+
+/* parse all the tools for templating */
+var exportedToolsNames = []
+fs.readdir('./public/js/tools',(err,files)=>{
+    if(err) throw err
+    exportedToolsNames = files
+})
 
 /* path to get all tools in a single GET request */
 app.get('/js/tools/all',(req,res)=>{
     const allTools = require('./public/js/tools/allTools')
-        .then(js=>res.send(js))
+        .then(arr=>res.send('var ToolsAll = []' + arr.map(js=>js.replace(/var.*?\=/,'ToolsAll[ToolsAll.length] =').join('\n'))))
         .catch(e=>res.status(500))
 })
-
-/* path to get all tools in a single GET request */
-app.get('/js/tools/all',(req,res)=>res.send('var AllTools = '+JSON.stringify(allToolsObj)))
 
 app.get('/getTile',function (req,res){
     fetch(req.query.source)
