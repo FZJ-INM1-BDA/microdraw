@@ -1,7 +1,7 @@
 /*global Microdraw*/
 /*global paper*/
 
-var ToolToPolygon = {toPolygon: (function() {
+var ToolToPolygon = { toPolygon: (function() {
     var tool = {
 
         /**
@@ -25,7 +25,7 @@ var ToolToPolygon = {toPolygon: (function() {
             }
         },
 
-        /*
+        /**
          * @function click
          * @desc Convert bezier curve into polygon path
          * @param {string} prevTool The previous tool to which the selection goes back

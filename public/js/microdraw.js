@@ -2108,7 +2108,7 @@ var Microdraw = (function () {
          * @desc Loads script from path if test is not fulfilled
          * @param {string} path Path to script, either a local path or a url
          * @param {function} testScriptPresent Function to test if the script is already present. If undefined, the script will be loaded.
-         * @returns {object} A promise fulfilled when the script is loaded
+         * @returns {Promise} A promise fulfilled when the script is loaded
          */
         loadScript: function loadScript(path, testScriptPresent) {
             return new Promise(function (resolve, reject) {
@@ -2144,29 +2144,9 @@ var Microdraw = (function () {
                 //MyLoginWidget.subscribe(loginChanged);
 
                 // extend Microdraw with tools
-                // load scripts dynamically since import is not currently supported by browsers
-                Promise.all([
-                    me.loadScript('/js/tools/draw.js'),
-                    me.loadScript('/js/tools/drawPolygon.js'),
-                    me.loadScript('/js/tools/drawLine.js'),
-                    me.loadScript('/js/tools/flipRegion.js'),
-                    me.loadScript('/js/tools/screenshot.js'),
-                    me.loadScript('/js/tools/toBezier.js'),
-                    me.loadScript('/js/tools/toPolygon.js'),
-                    me.loadScript('/js/tools/splitRegion.js'),
-                    me.loadScript('/js/tools/select.js')
-                ]).then(function () {
-                    me.tools = {};
-                    $.extend(me.tools, ToolDraw);
-                    $.extend(me.tools, ToolDrawPolygon);
-                    $.extend(me.tools, ToolFlipRegion);
-                    $.extend(me.tools, ToolScreenshot);
-                    $.extend(me.tools, ToolToBezier);
-                    $.extend(me.tools, ToolToPolygon);
-                    $.extend(me.tools, ToolSplitRegion);
-                    $.extend(me.tools, ToolDrawLine);
-                    $.extend(me.tools, ToolSelect);
-                });
+                // load scripts dynamically since import is not currently supported by browsers                
+                me.loadScript('/js/tools/all')
+                    .then(()=> Object.assign(me.tools,AllTools))
 
                 // Enable click on toolbar buttons
                 $("img.button").click(me.toolSelection);

@@ -178,6 +178,21 @@ app.use('/data', (req, res, next) => {
     next();
 }, require('./controller/data/'));
 
+/* parse all tools in public/js/tools */
+var allToolsObj = {}
+fs.readdir('public/js/tools/alltools',(err, files)=>{
+    if(err) throw err
+    files.forEach(file=>
+        fs.readFile('public/js/tools/'+file,'utf-8',(err2,data)=>{
+            if(err2)throw err2
+                eval('const newObj = '+data.replace(/var.*?\=/,''))
+                Object.assign(allToolsObj,newObj)
+        }))
+})
+
+/* path to get all tools in a single GET request */
+app.get('/js/tools/all',(req,res)=>res.send('var AllTools = '+JSON.stringify(allToolsObj)))
+
 app.get('/getTile',function (req,res){
     fetch(req.query.source)
         .then(img=>img.body.pipe(res))
