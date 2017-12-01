@@ -183,13 +183,14 @@ app.use('/data', (req, res, next) => {
 var exportedToolsNames = []
 fs.readdir('./public/js/tools',(err,files)=>{
     if(err) throw err
-    exportedToolsNames = files
+    exportedToolsNames = files.filter(file=>file!=='allTools.js').map(file=>file.slice(0,file.length-3))
 })
 
 /* path to get all tools in a single GET request */
 app.get('/js/tools/all',(req,res)=>{
-    const allTools = require('./public/js/tools/allTools')
-        .then(arr=>res.send('var ToolsAll = []' + arr.map(js=>js.replace(/var.*?\=/,'ToolsAll[ToolsAll.length] =').join('\n'))))
+    console.log('calling js/tools/all')
+    require('./public/js/tools/allTools')
+        .then(arr=>res.send('var ToolsAll = []' + arr.map(js=>js.replace(/var.*?\=/,'ToolsAll[ToolsAll.length] =')).join('\n')))
         .catch(e=>res.status(500))
 })
 

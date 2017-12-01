@@ -2,6 +2,7 @@ const fs = require('fs')
 
 module.exports = new Promise((resolve,reject)=>{
     fs.readdir(__dirname,(err,files)=>{
+        if(err)reject(err)
         Promise.all(files
             .filter(file=>file!=='allTools.js')
             .map(file=>new Promise((rs,rj)=>{
