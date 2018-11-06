@@ -3,6 +3,8 @@ const controller = require('./user.controller');
 
 const router = new express.Router();
 
+require('./customUserControllerFzj')(router)
+
 router.get('/json', controller.api_userAll);
 router.get('/json/:userName', controller.validator, controller.api_user);
 router.get('/json/:userName/files', controller.validator, controller.api_userFiles);

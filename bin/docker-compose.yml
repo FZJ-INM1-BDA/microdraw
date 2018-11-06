@@ -1,8 +1,13 @@
 version: '3'
 services:
     mongo:
+        restart: always
+        container_name: microdraw_mongo_db
         image: 'mongo'
+        ports:
+            - '27019:27017'
     microdraw:
+        restart: always
         container_name: microdraw
         depends_on:
             - 'mongo'

@@ -21,3 +21,4 @@ test/*.png
 .DS_Store
 .vscode
 access.log
+app/routes/access.log

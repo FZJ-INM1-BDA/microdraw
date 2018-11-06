@@ -54,6 +54,8 @@ var Microdraw = (function () {
         currentColorRegion: null,
         tools : {},
 
+        _otherProperties : {},
+
         /*
             Region handling functions
         */
@@ -231,11 +233,13 @@ var Microdraw = (function () {
 
             // Need to use unicode character for ID since CSS3 doesn't support ID selectors that start with a digit
             
-            /* if reg.uid is 2 digit or more, need to separate the digits... ie, if reg.uid == 10, the selector  needs to be #\\31 0 or tag will return null*/
-            var tag = document.querySelector("#regionList > .region-tag#\\3" + (reg.uid.toString().length > 1 ? reg.uid.toString()[0] + ' ' + reg.uid.toString().slice(1) : reg.uid.toString()) );
-            
-            tag.classList.remove("deselected");
-            tag.classList.add("selected");
+            if( reg ){
+                /* if reg.uid is 2 digit or more, need to separate the digits... ie, if reg.uid == 10, the selector  needs to be #\\31 0 or tag will return null*/
+                var tag = document.querySelector("#regionList > .region-tag#\\3" + (reg.uid.toString().length > 1 ? reg.uid.toString()[0] + ' ' + reg.uid.toString().slice(1) : reg.uid.toString()) );
+                
+                tag.classList.remove("deselected");
+                tag.classList.add("selected");
+            }
 
             if(me.debug) { console.log("< selectRegion"); }
         },
@@ -491,7 +495,7 @@ var Microdraw = (function () {
             if( me.debug ) {
                 console.log("> newRegion");
             }
-            var reg = {};
+            var reg = arg;
 
             reg.uid = me.regionUID();
             if( arg.name ) {
@@ -979,6 +983,8 @@ var Microdraw = (function () {
                     json: JSON.parse(info[i].path.exportJSON()),
                     name: info[i].name,
                     selected: info[i].path.selected,
+                    annotationID: info[i].annotationID,
+                    hash: info[i].hash,
                     fullySelected: info[i].path.fullySelected
                 };
                 undo.regions.push(el);
@@ -1037,17 +1043,13 @@ var Microdraw = (function () {
                 /* Create the path and add it to a specific project.
                 */
 
+                const {json, ...rest} = el
+
                 var path = new paper.Path();
+                path.importJSON(json);
                 project.addChild(path);
 
-                /*
-                 * @todo This is a workaround for an issue on paper.js. It needs to be removed when the issue will be solved
-                 */
-                var {insert} = path.insert;
-                path.importJSON(el.json);
-                path.insert = insert;
-
-                reg = me.newRegion({name:el.name, path:path}, undo.imageNumber);
+                reg = me.newRegion(Object.assign({}, rest, {path: path}), undo.imageNumber);
                 // here order matters. if fully selected is set after selected, partially selected paths will be incorrect
                   reg.path.fullySelected = el.fullySelected;
                  reg.path.selected = el.selected;
@@ -1174,9 +1176,9 @@ var Microdraw = (function () {
             if( me.debug ) {
                 console.log("> toolSelection");
             }
-            
+
             var prevTool = me.selectedTool;
-            
+
             if( me.tools[prevTool] && me.tools[prevTool].onDeselect ) me.tools[prevTool].onDeselect()
             
             me.selectedTool = $(this).attr("id");
@@ -1264,6 +1266,8 @@ var Microdraw = (function () {
                 console.log("+ saved regions:", me.ImageInfo[me.currentImage].Regions.length);
             }
         },
+
+        /* deprecated (?) */
 
         /**
          * @function load
@@ -1404,24 +1408,19 @@ var Microdraw = (function () {
                 // load regions from database
                 if( me.config.useDatabase ) {
                     me.microdrawDBLoad()
-                        .then(function(data){
-                            for( i = 0; i < data.length; i += 1 ) {
-                                reg = {};
-                                reg.name = data[i].annotation.name;
-                                //reg.page = data[i].annotation.page;
-                                json = data[i].annotation.path;
+                        .then(function (annotations) {
+                            annotations.forEach(a => {
+
+                                const { annotation, ...reg } = a
                                 reg.path = new paper.Path();
+                                reg.path.importJSON(annotation.path);
+                                reg.name = annotation.name
 
-                                /** @todo Remove workaround once paperjs will be fixed */
-                                var {insert} = reg.path.insert;
-                                reg.path.importJSON(json);
-                                reg.path.insert = insert;
-
-                                me.newRegion({name:reg.name, path:reg.path});
-                            }
+                                me.newRegion(reg);
+                            })
                             paper.view.draw();
                             // if image has no hash, save one
-                            me.ImageInfo[me.currentImage].Hash = (data.Hash ? data.Hash : me.hash(JSON.stringify(me.ImageInfo[me.currentImage].Regions)).toString(16));
+                            // me.ImageInfo[me.currentImage].Hash = (data.Hash ? data.Hash : me.hash(JSON.stringify(me.ImageInfo[me.currentImage].Regions)).toString(16));
 
                             $("#regionList").height($(window).height() - $("#regionList").offset().top);
                             me.updateRegionList();
@@ -1457,7 +1456,7 @@ var Microdraw = (function () {
              * @todo Commenting this line out solves the image size issues set size of the current overlay to match the size of the current image
              */
 
-            //me.magicV = me.viewer.world.getItemAt(0).getContentSize().x / 100;
+            me.magicV = me.viewer.world.getItemAt(0).getContentSize().x;
 
             me.transform();
         },
@@ -2004,6 +2003,9 @@ var Microdraw = (function () {
             if( me.debug ) {
                 console.log("json file:", obj);
             }
+
+            /* TODO temporary measure */
+            me._otherProperties = obj.imagesMetadata
 
             // for loading the bigbrain
             if( obj.tileCodeY ) {

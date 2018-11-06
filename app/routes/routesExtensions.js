@@ -25,11 +25,11 @@ module.exports = (app) =>{
                     url.parse(source).protocol + '//' + url.parse(source).host : 
                     req.protocol + '://' + req.hostname;
         const sourcePath = url.parse(source).path ? url.parse(source).path : null;
-        (new Promise((resolve,reject)=>{
+        (new Promise((resolve, reject)=>{
             if( sourceHostname && sourcePath ){
                 request(sourceHostname + sourcePath, (err, resp, body) => {
                     if(err) reject(err)
-                    if(resp.statusCode >= 400)
+                    if(resp && resp.statusCode >= 400)
                         reject(body)
                     else
                         resolve(body)

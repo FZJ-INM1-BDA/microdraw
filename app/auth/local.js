@@ -16,16 +16,16 @@ module.exports = (app)=>{
         .then(user=>{
 
           /* never use md5 to store passwords*/
-          // done(null, user ? 
-          //   user.password === md5(password) ?
-          //     user :
-          //     false :
-          //   false)
+          done(null, user ? 
+            user.password === md5(password) ?
+              user :
+              false :
+            false)
 
           /* bcrypt -> more secure */
-          bcrypt.compare(password,user.passhash)
-            .then(res=>done(null,res ? user : false))
-            .catch(e=>done(e))
+          // bcrypt.compare(password,user.passhash)
+          //   .then(res=>done(null,res ? user : false))
+          //   .catch(e=>done(e))
         })
         .catch(e=>{
           console.log(JSON.stringify(e))
@@ -43,6 +43,10 @@ module.exports = (app)=>{
       res.redirect(301,req.session.returnTo || '/')
       delete req.session.returnTo
     })
+
+  app.post('/localLoginAjax', passport.authenticate('local'), (req, res) => {
+    res.status(200).send(req.user.username)
+  })
 
   app.post('/localSignup', (req,res)=>{
 

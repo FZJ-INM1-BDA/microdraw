@@ -21,14 +21,14 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
 /* setup DB */
-const db = require('./db/db')()
+const db = require('./db/dbFzj')()
 app.db = db
 
 /* setup authentication */
 require('./auth/auth')(app)
 
 /* setup GUI routes */
-require('./routes/routes')(app)
+require('./routes/routesFzj')(app)
 
 
 // catch 404 and forward to error handler
