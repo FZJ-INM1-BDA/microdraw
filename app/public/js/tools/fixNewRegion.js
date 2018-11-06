@@ -627,6 +627,10 @@ var ToolFixNewRegion = {
 
         const id = Microdraw._otherProperties[ Microdraw.imageOrder.indexOf(Microdraw.currentImage) ].id
 
+        const processUserName = (user) => user.constructor === String
+          ? user
+          : 'anonymouse'
+
         fetch(`/all?image_hash=${id}`,{
           credentials : 'same-origin'
         })
@@ -634,7 +638,7 @@ var ToolFixNewRegion = {
           .then((data)=>{
             tooltip.message = [ 'Annotated By', 
               Array.from(data
-                .map(item=>item.user)
+                .map(item => processUserName(item.user))
                 .reduce((acc,curr)=>
                   acc.get(curr) ?
                     acc.set( curr, acc.get(curr) + 1 ) :
