@@ -124,10 +124,10 @@ var ToolFixNewRegion = {
                   v-on:select-pill = "selectRegion(activeRegionName)" 
                   v-on:remove-pill = "removeRegion(activeRegionName)" 
                   v-bind:name = "activeRegionName" 
-                  v-bind:key = "index"
                   v-for = " (activeRegionName,index) in presetRegionNames ">
                 </v-pill>
               </transition-group>
+              <div>{{ error }}</div>
             </div>
           </template>
         </vue-modal>
@@ -143,10 +143,21 @@ var ToolFixNewRegion = {
           left : null,
           top : null,
           visible : false,
+          error: null
         },
         methods : {
           afterEnter : function () {
             this.$refs.newRegionTextInput.focus()
+          },
+          catchError: function (e) {
+            switch(e.message){
+              case '401':
+                this.error = 'You must sign in first'
+              break;
+              default:
+                this.error = 'Server error occurred.'
+              break;
+            }
           },
           refreshRegion : function(){
             return fetch('/user/presetRegionNames',{
@@ -155,16 +166,19 @@ var ToolFixNewRegion = {
               .then(res=>{
                 if (res.status === 200) {
                   return res.json()
+                } else if (res.status === 401){
+                  throw new Error('401')
                 } else {
-                  console.log('fetching preset regionnames error', res)
-                  return ([])
+                  console.error('Other error', res)
+                  throw new Error('500')
                 }
               })
               .then((presetRegionNames)=>{
+                this.error = null
                 if (presetRegionNames)
                   this.presetRegionNames = presetRegionNames
               })
-              .catch(console.warn)
+              .catch(this.catchError)
           },
           updateRegions  :function(regions){
             return fetch('/user/presetRegionNames',{
@@ -183,7 +197,7 @@ var ToolFixNewRegion = {
           /* modify user setting */
           removeRegion : function(name){
             this.updateRegions( this.presetRegionNames.filter(n=>n!==name) )
-              .catch(console.warn)
+              .catch(this.catchError)
           },
           selectRegion : function(name){
             this.$emit('selected-region-name',name)
@@ -194,7 +208,7 @@ var ToolFixNewRegion = {
                 this.newRegionName = ``
                 this.$forceUpdate()
               })
-              .catch(console.warn)
+              .catch(this.catchError)
           }
         },
         mounted() {
