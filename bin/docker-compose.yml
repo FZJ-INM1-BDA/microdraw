@@ -6,6 +6,8 @@ services:
         image: 'mongo'
         ports:
             - '27019:27017'
+        volumes:
+            - '/shared/software/microdraw-dev/mongo_volume:/data/db'
     microdraw:
         restart: always
         container_name: microdraw
@@ -16,4 +18,5 @@ services:
         ports:
             - '3000:3000'
         environment:
-            - MONGODB=mongodb://mongo:27017/microdraw
+            - MONGODB=mongodb://mongo:27017/microdraw_database
+            - LOCALSIGNIN=true
