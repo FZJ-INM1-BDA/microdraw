@@ -3,7 +3,6 @@
 
 var ToolRotateCanvas = {
   rotateCanvas : (function(){
-    var rotation = 0
     var rebindscalebar = function(){
       OpenSeadragon.Scalebar.prototype.getScalebarLocation = (function() {
         var currentRotation = Microdraw.viewer.viewport.getRotation() / 90
@@ -90,9 +89,28 @@ var ToolRotateCanvas = {
         }
       }).bind(Microdraw.viewer.scalebarInstance);
     }
+
+    const patchProject = (project) => {
+        const r = Microdraw.viewer.viewport.getRotation()
+        const r2 = project.view._matrix.getRotation()
+        project.view._matrix.rotate(r - r2)
+    }
+
+    const originalPaperSetup = paper.setup
+    const patchNewPaperJSProject = () => {
+        paper.setup = function () {
+            const newProject = originalPaperSetup.apply(this, arguments)
+            patchProject(newProject)
+        }
+    }
+
+    /**
+     * patch microdraw/paperjs/osd
+     */
+    patchNewPaperJSProject()
+
     var tool = {
       click : function click(prevTool) {
-        console.log('this.location',Microdraw.viewer.scalebarInstance.location)
         Microdraw.navEnabled = true
 
         /* rotate openseadragon viewer */
@@ -101,11 +119,11 @@ var ToolRotateCanvas = {
         Microdraw.viewer.viewport.setRotation( r >= 270 ? 0 : (r + 90) )
 
         /* rotate all the annotations */
-        paper.projects.forEach(project=>project.view._matrix.rotate(r >= 270 ? -270 : 90))
+        paper.projects.forEach(patchProject)
 
         /* if not, bugs where unless user pan, the annotations will not be flipped */
         const center = paper.view.center
-        Microdraw.viewer.viewport.zoomBy(0.99999999,center,false)
+        Microdraw.viewer.viewport.zoomBy(0.99999999, center, false)
         
         rebindscalebar()
 
@@ -113,7 +131,8 @@ var ToolRotateCanvas = {
         /* somehow this is needed ... to refresh the view? I don't quite understand */
           
       }
-    }
+    };
+
     return tool;
   }())
 };
