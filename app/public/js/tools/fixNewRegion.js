@@ -503,18 +503,19 @@ var ToolFixNewRegion = {
       })
 
       const loginContainer = document.getElementById('MyLogin')
-      window['loginmodal'] = loginModal
-      a = loginContainer.children[0].children[0]
-      a.addEventListener('click', (event) => {
-        event.preventDefault()
-        event.stopPropagation()
-
-        loginModal.left = event.target.offsetLeft - 10
-        loginModal.top = event.target.offsetHeight + 10
-
-        loginModal.visible = true
-      })
-
+      if (loginContainer && loginContainer.children[0]) {
+        window['loginmodal'] = loginModal
+        a = loginContainer.children[0].children[0]
+        a.addEventListener('click', (event) => {
+          event.preventDefault()
+          event.stopPropagation()
+  
+          loginModal.left = event.target.offsetLeft - 10
+          loginModal.top = event.target.offsetHeight + 10
+  
+          loginModal.visible = true
+        })
+      }
     }
 
     const patchTooltip = function () {
