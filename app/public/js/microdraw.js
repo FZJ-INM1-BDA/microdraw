@@ -2077,6 +2077,12 @@ var Microdraw = (function () {
                 preserveViewport: true
             });
 
+            // add handlers: update section name, animation, page change, mouse actions
+            me.viewer.addHandler('open', function () {
+                me.initAnnotationOverlay();
+                me.updateSectionName();
+            });
+            
             // open the currentImage
             me.viewer.open(me.ImageInfo[me.currentImage].source);
 
@@ -2104,11 +2110,6 @@ var Microdraw = (function () {
                 showScreenshotControl: true // Default is true
             });
 
-            // add handlers: update section name, animation, page change, mouse actions
-            me.viewer.addHandler('open', function () {
-                me.initAnnotationOverlay();
-                me.updateSectionName();
-            });
             me.viewer.addHandler('animation', function () {
                 me.transform();
             });

@@ -359,7 +359,7 @@ var ToolFixNewRegion = {
             const index = this.placeholder === 'Search BrainID SectionID'
               ? 0
               : Microdraw._otherProperties.findIndex(metadata => {
-                return `${metadata.brainID} ${metadata.sectionID}` === this.placeholder
+                return `${metadata.brainID} S${metadata.sectionID}` === this.placeholder
               })
             this.rawarray = Microdraw._otherProperties.slice(
               Math.max(index - 5, 0)
