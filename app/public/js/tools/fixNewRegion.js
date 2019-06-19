@@ -7,6 +7,8 @@ var ToolFixNewRegion = {
     const updateSectionNameCb = []
     const loginCB = []
 
+    const cvtMetadataToDisplayName = (metadata) => cvtMetadataToDisplayName(metadata)
+
     Microdraw.updateSectionName = function(){
       updateSectionNameCb.forEach(cb=>cb())
       // $('title').text("MicroDraw|" + filename + "|" + me.currentImage);
@@ -359,18 +361,18 @@ var ToolFixNewRegion = {
             const index = this.placeholder === 'Search BrainID SectionID'
               ? 0
               : Microdraw._otherProperties.findIndex(metadata => {
-                return `${metadata.brainID} S${metadata.sectionID}` === this.placeholder
+                return cvtMetadataToDisplayName(metadata) === this.placeholder
               })
             this.rawarray = Microdraw._otherProperties.slice(
               Math.max(index - 5, 0)
-            ).map(metadata => `${metadata.brainID} ${metadata.sectionID}`)
+            ).map(metadata => cvtMetadataToDisplayName(metadata))
           }
         }
       })
 
       /* patch the emitted select slice event */
       sectionNameBrowser.$on('selectslice',(Bid_Sid)=>{
-        const idx = Microdraw._otherProperties.findIndex(prop=>`${prop.brainID} S${prop.sectionID}` === Bid_Sid) 
+        const idx = Microdraw._otherProperties.findIndex(metadata => cvtMetadataToDisplayName(metadata) === Bid_Sid) 
         if( idx >= 0 && Microdraw.imageOrder[idx] ){
           Microdraw.updateSliderValue(idx)
           Microdraw.loadImage( Microdraw.imageOrder[idx] )
@@ -388,11 +390,11 @@ var ToolFixNewRegion = {
         const idx = Microdraw.imageOrder.indexOf( Microdraw.currentImage )
         Microdraw.updateSliderValue(idx)
 
-        const sectionName = Microdraw._otherProperties ? 
-          Microdraw._otherProperties[ idx ] ?
-            `${Microdraw._otherProperties[ idx ].brainID} S${Microdraw._otherProperties[ idx ].sectionID}` :
-            Microdraw.currentImage :
-          Microdraw.currentImage
+        const sectionName = Microdraw._otherProperties
+          ? Microdraw._otherProperties[ idx ]
+            ? cvtMetadataToDisplayName(Microdraw._otherProperties[ idx ])
+            : Microdraw.currentImage
+          : Microdraw.currentImage
 
         sectionNameBrowser.placeholder = sectionName
       })
