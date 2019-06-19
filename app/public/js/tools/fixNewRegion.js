@@ -348,10 +348,22 @@ var ToolFixNewRegion = {
             this.$emit('selectslice',item)
           },
           refresh : function(){
-            this.rawarray = Microdraw._otherProperties ? 
-              Microdraw._otherProperties.map(metadata=>`${metadata.brainID} S${metadata.sectionID}`) :
-              []
-            // console.log(this.$data.rawarray)
+            if (!Microdraw._otherProperties) {
+              this.rawarray = []
+              return
+            }
+
+            /**
+             * display 5 prior and 20 after of the current selected slice
+             */
+            const index = this.placeholder === 'Search BrainID SectionID'
+              ? 0
+              : Microdraw._otherProperties.findIndex(metadata => {
+                return `${metadata.brainID} ${metadata.sectionID}` === this.placeholder
+              })
+            this.rawarray = Microdraw._otherProperties.slice(
+              Math.max(index - 5, 0)
+            ).map(metadata => `${metadata.brainID} ${metadata.sectionID}`)
           }
         }
       })
@@ -503,10 +515,9 @@ var ToolFixNewRegion = {
       })
 
       const loginContainer = document.getElementById('MyLogin')
-      if (loginContainer && loginContainer.children[0]) {
+      if (loginContainer) {
         window['loginmodal'] = loginModal
-        a = loginContainer.children[0].children[0]
-        a.addEventListener('click', (event) => {
+        loginContainer.addEventListener('click', (event) => {
           event.preventDefault()
           event.stopPropagation()
   
@@ -514,6 +525,8 @@ var ToolFixNewRegion = {
           loginModal.top = event.target.offsetHeight + 10
   
           loginModal.visible = true
+        }, {
+          capture: true
         })
       }
     }
