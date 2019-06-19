@@ -7,7 +7,7 @@ var ToolFixNewRegion = {
     const updateSectionNameCb = []
     const loginCB = []
 
-    const cvtMetadataToDisplayName = (metadata) => `${metadata.brainID} ${metadata.sectionID}`
+    const cvtMetadataToDisplayName = (metadata) => `${metadata.brainID} S${metadata.sectionID}`
 
     Microdraw.updateSectionName = function(){
       updateSectionNameCb.forEach(cb=>cb())
