@@ -73,7 +73,9 @@ html,body {
 }
 
 #colorSelector,
-#colorSelector *
+#colorSelector *,
+.text-black,
+.text-black > *
 {
     color: black;
 }

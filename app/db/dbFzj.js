@@ -84,14 +84,10 @@ module.exports = function(overwriteMongoPath){
      * @returns {Promise} to resolve when saving is complete
      */
     const updateAnnotation = (saveQuery)=> new Promise((resolve,reject)=>{
-        const { 
-          image_hash,
-          annotation_hash,
-          user,
-          fileID,
-          created_at,
+        const {
           annotation_id,
-          annotation
+          user,
+          ...rest
         } = saveQuery
 
         db.get('annotations').update(
@@ -104,19 +100,14 @@ module.exports = function(overwriteMongoPath){
             { multi : true }
         ).then(()=>{
             db.get('annotations').insert({
-              image_hash,
-              annotation_hash,
-              user,
-              fileID,
               annotation_id,
-              annotation,
-              created_at,
+              user,
+              ...rest,
               last_modified : Date.now().toString()
             })
-              .then(json=>json.annotation_id ? 
-                  json : 
-                  db.get('annotations').findOneAndUpdate(
-                    { _id : json._id } ,
+              .then(json=>json.annotation_id
+                  ? json
+                  : db.get('annotations').findOneAndUpdate({ _id : json._id } ,
                     Object.assign({} , json , { annotation_id : JSON.stringify(json._id.toString()) }) ,
                     { returnNewDocument : true }
                   )

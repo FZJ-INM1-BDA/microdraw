@@ -61,13 +61,18 @@ module.exports = (app) => {
     app.get('/api', configSetup, morganMiddleWare, access.readAccess, function (req, res) {
 
       console.warn("call to GET api");
-      console.warn({query:req.query});
 
-      console.log({user:req.user})
+      const { query = {}, user } = req
+      const { image_hash, image_index = null } = query
 
       app.db.findAnnotations({
-          image_hash : req.query.image_hash,
-          user : req.user ? req.user.username : 'anonymouse'
+          image_hash,
+
+          // image_index maybe 0, and Number(0) is falsy
+          image_index: image_index !== null && Number(image_index) >= 0
+            ? Number(image_index) 
+            : { $exists: false },
+          user : (user && user.username) || 'anonymouse'
       })
           .then(annotations=>res.status(200).send(
             annotations.map(a=>
@@ -86,23 +91,21 @@ module.exports = (app) => {
       console.log('post /api called (save/update)')
 
       const {
-        fileID,
-        image_hash,
-        annotations
+        annotations,
+        ...rest
       } = req.body
 
       Promise.all(annotations.map(annotation=>
         app.db.updateAnnotation({
-          image_hash,
           annotation_hash : annotation.annotation_hash,
           user : req.user ? req.user.username : 'anonymouse',
-          fileID ,
           created_at : Date.now().toString(),
           annotation_id : annotation.annotationID,
-          annotation : annotation.annotations
+          annotation : annotation.annotations,
+          ...rest
         })))
           .then(array=>res.status(200).send(array))
-          .catch(e=>res.status(500).send(e))
+          .catch(e=>res.status(500).send(JSON.stringify(e)))
     })
 
     /**

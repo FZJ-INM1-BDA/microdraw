@@ -4,10 +4,131 @@
 var ToolFixNewRegion = {
   fixNewRegion: (function(){
     let fixed = false
+
     const updateSectionNameCb = []
     const loginCB = []
+    let filteredList = []
 
     const cvtMetadataToDisplayName = (metadata) => `${metadata.brainID} S${metadata.sectionID}`
+
+    Microdraw.loadNextImage = function () {
+      const currentImageIdx = Microdraw.imageOrder.indexOf(Microdraw.currentImage)
+      const { id: currentImageHash } = Microdraw._otherProperties[currentImageIdx]
+      const nextImageIdx = Microdraw._otherProperties.findIndex(({ id }, idx) => idx > currentImageIdx && id !== currentImageHash)
+
+      Microdraw.updateSliderValue( nextImageIdx >= 0 ? nextImageIdx : 0 )
+
+      const nextImageObj = Microdraw.imageOrder[nextImageIdx >= 0 ? nextImageIdx : 0]
+      Microdraw.loadImage( nextImageObj )
+    }
+
+    Microdraw.sliderOnChange = function (index) {
+      if (Number(index) === NaN) {
+        console.warn(`slider On Change not a number`, index)
+        return
+      }
+
+      const newItemToLoad = filteredList[Number(index)] || filteredList[0]
+      const nextItemIdx = Microdraw._otherProperties.findIndex(({ id, imageIndex }) => newItemToLoad.id === id && newItemToLoad.imageIndex === imageIndex)
+
+      const newImageObj = Microdraw.imageOrder[nextItemIdx]
+      Microdraw.loadImage(newImageObj)
+    }
+
+    Microdraw.initSlider = function () {
+      const slider = document.getElementById('slider')
+      if (!slider) {
+        console.warn(`slider cannot be found`)
+        return
+      }
+
+      filteredList = Microdraw._otherProperties.reduce((acc, curr) => {
+        const exists = acc.find(({ id }) => id === curr.id )
+        return exists ? acc : acc.concat(curr)
+      }, [])
+
+      slider.setAttribute('min', 0)
+      slider.setAttribute('max', filteredList.length - 1)
+      const handleChangeEv = ev => Microdraw.sliderOnChange(ev.target.value)
+      slider.addEventListener('input', handleChangeEv)
+    }
+
+    const appendPliSlider = function () {
+      const container = document.createElement('div')
+      container.style.display = `block`
+      container.id = `pliSliderContainer`
+      container.innerHTML = `
+      <div
+        v-show="!!steps"
+        class="text-black">
+        <label for="pliSlider">Slice: {{ sliderIdx }}</label>
+        <br />
+        <input
+          min="0"
+          step="1"
+          :max="steps"
+          :disabled="!steps"
+          :value="sliderIdx"
+          @input="updateValue"
+          name="pliSlider"
+          id="pliSlider"
+          type="range" />
+      </div>
+      `
+
+      const originalSlider = document.getElementById('slider')
+      originalSlider.parentElement.appendChild(container)
+      const vueCompo = new Vue({
+        el: '#pliSliderContainer',
+        props: {
+          steps: {
+            type: Number,
+            default: null
+          }
+        },
+        data: function () {
+          return {
+            sliderIdx: 0
+          }
+        },
+        watch: {
+          steps: function (val) {
+            if (!val) this.sliderIdx = 0
+          }
+        },
+        methods: {
+          updateValue: function (ev) {
+            this.sliderIdx = Number(ev.target.value)
+            this.$emit('updateSlider', this.sliderIdx)
+          }
+        }
+      })
+
+      vueCompo.$on('updateSlider', val => {
+        const currentImageIdx = Microdraw.imageOrder.indexOf(Microdraw.currentImage)
+        const { id: imageHash } = Microdraw._otherProperties[currentImageIdx]
+        const nextIndex = Microdraw._otherProperties.findIndex(({ id, imageIndex }) => id === imageHash && val === imageIndex)
+        const firstIndex = Microdraw._otherProperties.findIndex(({ id, imageIndex }) => id === imageHash && 0 === imageIndex)
+
+        const nextImageObj = Microdraw.imageOrder[nextIndex >= 0 ? nextIndex : firstIndex]
+        Microdraw.loadImage( nextImageObj )
+      })
+
+      updateSectionNameCb.push(() => {
+        
+        const currentImageIdx = Microdraw.imageOrder.indexOf(Microdraw.currentImage)
+        const { imageIndex = null, id } = Microdraw._otherProperties[currentImageIdx]
+        if (imageIndex === null) {
+          vueCompo.$props.steps = null
+          return
+        }
+        let idx = 0
+        while (Microdraw._otherProperties[currentImageIdx + idx] && Microdraw._otherProperties[currentImageIdx + idx].id === id ) {
+          idx ++
+        }
+        vueCompo.$props.steps = Microdraw._otherProperties[currentImageIdx + idx - 1].imageIndex
+      })
+    }
 
     Microdraw.updateSectionName = function(){
       updateSectionNameCb.forEach(cb=>cb())
@@ -363,9 +484,13 @@ var ToolFixNewRegion = {
               : Microdraw._otherProperties.findIndex(metadata => {
                 return cvtMetadataToDisplayName(metadata) === this.placeholder
               })
-            this.rawarray = Microdraw._otherProperties.slice(
-              Math.max(index - 5, 0)
-            ).map(metadata => cvtMetadataToDisplayName(metadata))
+            this.rawarray = Microdraw._otherProperties
+              // remove none first duplicates
+              .filter(({ id }, idx, arr) => !(arr.findIndex(({ id: _id }) => id === _id) < idx) )
+              .map(metadata => cvtMetadataToDisplayName(metadata))
+              .slice(
+                Math.max(index - 5, 0)
+              )
           }
         }
       })
@@ -388,7 +513,15 @@ var ToolFixNewRegion = {
         sectionNameBrowser.refresh()
 
         const idx = Microdraw.imageOrder.indexOf( Microdraw.currentImage )
-        Microdraw.updateSliderValue(idx)
+
+        /**
+         *  with the introduction of PLI images, actual slides is a reduced selection (grouped by imageIndex) 
+         * So, up updateSecitonNameCb, find the first instance of imageHash (imageMetadata[idx].id), and set index 
+         * 
+        */
+        const { id } = Microdraw._otherProperties[idx]
+        const sliderVal = filteredList.findIndex(({ id: _id }) => _id === id)
+        Microdraw.updateSliderValue(sliderVal)
 
         const sectionName = Microdraw._otherProperties
           ? Microdraw._otherProperties[ idx ]
@@ -713,6 +846,10 @@ var ToolFixNewRegion = {
         patchUpdateSectionName()
         patchTooltip()
         patchLocalLoginModal()
+        appendPliSlider()
+      })
+      .then(() => {
+        Microdraw.updateSectionName()
       })
       .catch(e=>{
         console.error('Loading VueJS Error!',e)

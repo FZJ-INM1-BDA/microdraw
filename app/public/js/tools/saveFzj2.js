@@ -6,6 +6,18 @@
 const dbroot = '/api'
 Microdraw.lastImageInfos = {}
 
+const fetchSolrMetadata = ({ getTileUrlString }) => (/B[0-9]{2}\_[0-9]{4}/.test(getTileUrlString) && fetch(`/imageHash?brainID_sliceNumber=${/B[0-9]{2}\_[0-9]{4}/.exec(getTileUrlString)[0]}`)
+  .then(res=>res.json())
+  .then(json => {
+    if(json.response && json.response.numFound > 0 ) return json.response.docs
+    else throw new Error(`fetchingSolrMetadata failed`, json)
+  })
+  .then(docs => {
+    if (docs.length > 1) throw new Error(`non unique imageHash retrieved`, docs)
+    return docs[0]
+  }))
+  || Promise.reject(`could not parse getTileUrl:${getTileUrlString}`)
+
 const ToolSave = {
   save : (function(){
 
@@ -24,7 +36,6 @@ const ToolSave = {
      * @return {number} hash
      */
     const annotationHash = function(annotation, type){
-      debugger
       const t = type ? type : annotation.type;
       if ( t === "Region" ) {
           const correctedPath = annotation.path.constructor !== Array
@@ -36,7 +47,6 @@ const ToolSave = {
     }
 
     const prepareRegionForDB = (region) =>{
-      debugger
       return ({
         annotations : {
           path : {
@@ -52,27 +62,19 @@ const ToolSave = {
         
         originalRe : region
       })
-}
-    const getImageMetadata = (otherProp,getTileUrlString)=>otherProp ? 
-      Promise.resolve( otherProp ) : 
-      /B[0-9]{2}\_[0-9]{4}/.exec(getTileUrlString) ?
-        fetch(`/imageHash?brainID_sliceNumber=${/B[0-9]{2}\_[0-9]{4}/.exec(getTileUrlString)[0]}`)
-          .then(res=>res.json())
-          .then(json=>{
-            if(json.response && json.response.numFound && json.response.numFound === 1){
-              /* because solr search fields are snake cased, have to provide a translation */
-              const { brain_id, section_id, id, ...rest } = json.response.docs[0]
-              return Promise.resolve({
-                brainID: brain_id,
-                sectionID : section_id,
-                id
-              })
-            }else{
-              console.warn('> response from proxied solr',json)
-              return Promise.reject('proxied response from solr failed')
+    }
+
+    const getImageMetadata = (otherProp,getTileUrlString) => otherProp
+      ? Promise.resolve( otherProp )
+      : fetchSolrMetadata({ getTileUrlString })
+          .then(({ brain_id, section_id, id, imageIndex, ...rest }) => {
+            return {
+              brainID: brain_id,
+              sectionID : section_id,
+              id,
+              imageIndex
             }
-          }) :
-        Promise.reject(`could not parse getTileUrl:${getTileUrlString}`)
+          })
 
     const copyFilterObj = (obj) => obj.map(o=>{
       const copy = Object.assign({},o)
@@ -80,16 +82,19 @@ const ToolSave = {
       return copy
     })
     
-    const restToBackend = (metadata,oSave,oUpdate,oDelete,oUndelete) => Promise.all([
+    const restToBackend = ({ brainID, sectionID, id, imageIndex = null }, oSave, oUpdate, oDelete, oUndelete) => Promise.all([
       fetch(dbroot,{
-        method : 'POST',
-        headers : { 'Content-Type' : 'application/json' },
-        body : JSON.stringify({
-          fileID :`${metadata.brainID}_${metadata.sectionID}` ,
-          image_hash : metadata.id ,
-          annotations : copyFilterObj(oSave)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileID :`${brainID}_${sectionID}`,
+          image_hash: id,
+          annotations: copyFilterObj(oSave),
+          ...imageIndex !== null
+            ? { image_index: imageIndex }
+            : {}
         }),
-        credentials : 'same-origin'
+        credentials: 'same-origin'
       })
         .then(res=>res.json())
         .then(json=>{
@@ -101,14 +106,17 @@ const ToolSave = {
         }),
 
       fetch(dbroot,{
-        method : 'POST',
-        headers : { 'Content-Type' : 'application/json' },
-        body : JSON.stringify({
-          fileID :`${metadata.brainID}_${metadata.sectionID}` ,
-          image_hash : metadata.id ,
-          annotations : copyFilterObj(oUpdate)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileID :`${brainID}_${sectionID}`,
+          image_hash: id,
+          annotations: copyFilterObj(oUpdate),
+          ...imageIndex !== null
+            ? { image_index: imageIndex }
+            : {}
         }),
-        credentials : 'same-origin'
+        credentials: 'same-origin'
       })
         .then(res=>res.json())
         .then(json=>{
@@ -119,26 +127,32 @@ const ToolSave = {
         }),
 
       fetch(dbroot,{
-        method : 'DELETE',
-        headers : { 'Content-Type' : 'application/json' },
-        body : JSON.stringify({
-          fileID :`${metadata.brainID}_${metadata.sectionID}` ,
-          image_hash : metadata.id ,
-          annotations : copyFilterObj(oDelete)
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileID :`${brainID}_${sectionID}`,
+          image_hash: id,
+          annotations: copyFilterObj(oDelete),
+          ...imageIndex !== null
+            ? { image_index: imageIndex }
+            : {}
         }),
-        credentials : 'same-origin'
+        credentials: 'same-origin'
       })
         .then(res=>res.json()),
 
       fetch(dbroot,{
-        method : 'PUT',
-        headers : { 'Content-Type' : 'application/json' },
-        body : JSON.stringify({
-          fileID :`${metadata.brainID}_${metadata.sectionID}` ,
-          image_hash : metadata.id ,
-          annotations : copyFilterObj(oUndelete)
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileID :`${brainID}_${sectionID}`,
+          image_hash: id,
+          annotations: copyFilterObj(oUndelete),
+          ...imageIndex !== null
+            ? { image_index: imageIndex }
+            : {}
         }),
-        credentials : 'same-origin'
+        credentials: 'same-origin'
       })
         .then(res=>res.json())
     ])
@@ -260,29 +274,22 @@ const ToolSave = {
   }())
 }
 
-const veryfiyImageHash = ( imageHash, getTileUrlString )=> 
-  imageHash ? 
-    Promise.resolve(imageHash) :
-    /B[0-9]{2}\_[0-9]{4}/.exec(getTileUrlString) ?
-      fetch(`/imageHash?brainID_sliceNumber=${/B[0-9]{2}\_[0-9]{4}/.exec(getTileUrlString)[0]}`)
-        .then(res=>res.json())
-        .then(json=>{
-          if(json.response && json.response.numFound && json.response.numFound === 1){
-            /* because solr search fields are snake cased, have to provide a translation */
-            const { id, ...rest } = json.response.docs[0]
-            return id ? Promise.resolve(id) : Promise.reject(`id field does not exist.${JSON.stringify(json.response.docs[0])}`)
-          }else{
-            console.warn('> response from proxied solr',json)
-            return Promise.reject('proxied response from solr failed')
-          }
-        }) :
-      Promise.reject(`could not parse getTileUrl${getTileUrlString}`)
+/**
+ * Backwards compatibility
+ * If imageHash is missing, fetch the imageHash with Brain ID and slice Number first
+ */
+const veryfiyImageHash = ({ imageHash, getTileUrlString }) => imageHash
+  ? Promise.resolve(imageHash)
+  : fetchSolrMetadata({ getTileUrlString }).then(({ id }) => id)
 
-const fzjLoadAnnotationFromDb = (imageHash, getTileUrlString) => 
-  veryfiyImageHash(imageHash, getTileUrlString)
-    .then(imageHash=>
-      fetch(`${dbroot}?image_hash=${imageHash}` , { credentials : 'same-origin' })
-        .then(res=>res.json()))
+const fzjLoadAnnotationFromDb = ({ imageHash, imageIndex = null, getTileUrlString }) => 
+  veryfiyImageHash({ imageHash, getTileUrlString })
+    .then(imageHash=> {
+      const searchParam = new URLSearchParams()
+      searchParam.set('image_hash', imageHash)
+      if (imageIndex !== null) searchParam.set('image_index', imageIndex)
+      return fetch(`${dbroot}?${searchParam.toString()}` , { credentials : 'same-origin' }).then(res=>res.json())
+    })
 
 
 const fzjProcessFetchedArray = (array)=> array.map((item)=>({
@@ -297,15 +304,12 @@ const fzjProcessFetchedArray = (array)=> array.map((item)=>({
 /* overwritting default microdraw load function */
 Microdraw.microdrawDBLoad = function(){
   const index = Object.keys(Microdraw.ImageInfo).findIndex(key=>key===Microdraw.currentImage)
-  const imageHash = Microdraw._otherProperties ? 
-    index >=0 ?
-      Microdraw._otherProperties[ index ].id : 
-      undefined :
-    undefined
+  const foundOtherProperty = Microdraw._otherProperties && index >= 0 && Microdraw._otherProperties[ index ]
+  const { id: imageHash, imageIndex } = foundOtherProperty
   const getTileUrlString = Microdraw.ImageInfo[ Microdraw.currentImage ].source.getTileUrl.toString()
 
   /* loading annotation flag was never set to true anywhere? */
-  return fzjLoadAnnotationFromDb( imageHash, getTileUrlString )
+  return fzjLoadAnnotationFromDb({ imageHash, imageIndex, getTileUrlString })
     .then(arr=>{
       Microdraw.annotationLoadingFlag = false
       if( Microdraw.section !== Microdraw.currentImage ){
