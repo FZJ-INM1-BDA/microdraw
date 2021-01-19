@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reset password</title>
+</head>
+<body>
+  <h1>Reset password for {{ email }}</h1>
+  <small>NB: this resets password for both new microdraw and old microdraw!</small>
+  <form action="/resetCb" method="POST" id="pswdreset">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    <fieldset disabled>
+      <label>
+        email: <input type="text" name="email" value="{{ email }}">
+      </label>
+    </fieldset>
+    New password: <input type="password" name="password" id="password">
+    Retype password: <input type="password" name="password_again" id="password_again">
+    <button type="submit">Submit</button>
+  </form>
+  <div id="feedback"></div>
+</body>
+<script>
+  const pswdResetForm = document.getElementById('pswdreset')
+  pswdResetForm.addEventListener('submit', ev => {
+    const v1 = document.getElementById('password').value
+    const v2 = document.getElementById('password_again').value
+    if (v1 !== v2) {
+      document.getElementById('feedback').innerHTML = `Password and retype password must match.`
+      ev.preventDefault()
+      return false
+    }
+    return true
+  })
+</script>
+</html>

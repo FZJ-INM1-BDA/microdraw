@@ -40,7 +40,7 @@ module.exports = function(overwriteMongoPath){
 
     const upsertUser = (user)=> new Promise((resolve,reject)=>{
         queryUser({
-            nickname : user.username
+            username : user.username
         })
             .then(()=>updateUser(user))
             .then(()=>resolve())

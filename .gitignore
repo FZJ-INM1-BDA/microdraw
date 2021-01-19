@@ -22,3 +22,4 @@ test/*.png
 .vscode
 access.log
 app/routes/access.log
+.env
