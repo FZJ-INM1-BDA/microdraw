@@ -2,10 +2,13 @@ const passport = require('passport')
 const LocalStrategy = require('passport-local').Strategy
 const bcrypt = require('bcrypt')
 const md5 = require('md5')
+const localReset = require('./local-reset')
 
 const saltRounds = 10
 
 module.exports = (app)=>{
+
+  localReset(app)
 
   passport.use(new LocalStrategy(
     (username,password,done)=>{
