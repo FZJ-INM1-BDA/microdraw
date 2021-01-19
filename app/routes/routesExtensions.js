@@ -1,5 +1,7 @@
 const url = require('url')
+const sharp = require('sharp')
 const request = require('request')
+const bodyParser = require('body-parser')
 
 module.exports = (app) =>{
     app.get('/getTile',function (req,res){
@@ -51,4 +53,79 @@ module.exports = (app) =>{
                 res.status(404).send(e);
             })
     })
+
+    app.post('/getHighRes', bodyParser.json(), async (req, res) => {
+        const { snapshotParam, source } = req.body || {}
+        if (!source) {
+            res.status(400).send(`source is required `)
+            return
+        }
+
+        /**
+         * level is optional
+         * x, y, width, height should always be relative to max level
+         */
+        const { x, y, width, height, level, outputType } = snapshotParam
+        const { width: iWidth, height: iHeight, getTileUrl, tileSize } = source
+
+        const maxLevel = Math.log(Math.max(iWidth, iHeight)) / Math.log(2)
+        const getLevel = level || maxLevel
+        if (getLevel > maxLevel) {
+            res.status(400).send(`level exceeds max level`)
+            return
+        }
+        if (!!outputType && outputType !== 'tif' && outputType !== 'png'){
+            res.status(400).send(`outputtype needs to be either tif or png`)
+            return
+        }
+
+        const outputTmpFilename = outputType === 'png' ? 'tmp.png' : 'tmp.tif'
+        const methodname = outputType === 'png' ? 'png' : 'tiff'
+        const factor = Math.pow(maxLevel - getLevel, 2) 
+
+        const getTileFn = eval(getTileUrl)
+        const xStart = Math.floor(x / factor / tileSize)
+        const xEnd = Math.ceil( (x + width) / factor / tileSize )
+        const yStart = Math.floor( y / factor / tileSize )
+        const yEnd = Math.ceil( (y + height) / factor / tileSize )
+
+        await sharp({
+            create: {
+                width: (xEnd - xStart) * tileSize,
+                height: (yEnd - yStart) * tileSize,
+                channels: 4,
+                background: { r: 0, g: 0, b: 0, alpha: 1.0 }
+            }
+        })[methodname]().toFile(outputTmpFilename)
+
+        const writesToImage = (x, y, url) => new Promise((rs, rj) => {
+            request.get(url, async (err, resp, body) => {
+                sharp(outputTmpFilename)
+                    .composite([{
+                        input: body,
+                        top: y,
+                        left: x,
+                        blend: 'clear'
+                    }])[methodname]().toFile(outputTmpFilename, (err, info) => {
+                        if (err) return rj(err)
+                        return rs()
+                    })
+            })
+        })
+
+        try {
+            for (let i = xStart; i <= xEnd; i ++) {
+                for (let j = yStart; j <= yEnd; j++) {
+                    await writesToImage(i * tileSize, j * tileSize, getTileFn(getLevel, i, j, 0))
+                }
+            }
+            res.setHeader('Content-Disposition', `attachment; filename=${outputTmpFilename}`)
+            res.status(200).sendFile(outputTmpFilename)
+        } catch (e) {
+            console.error(`error in compositing image`, e)
+            res.status(500).send(`error in compositing image, ${e.toString()}`)
+        }
+        
+    })
+
 }
