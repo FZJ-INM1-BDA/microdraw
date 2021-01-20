@@ -47,17 +47,7 @@ module.exports = app => {
       pass: MAIL_PASS
     }
   })
-
-  const transport = nodeMailer.createTransport({
-    host: MAIL_HOST,
-    port: MAIL_PORT || 465,
-    secure: true,
-    auth: {
-      user: MAIL_USER,
-      pass: MAIL_PASS
-    }
-  })
-
+  
   app.get('/reset', async (req, res) => {
     const { email } = req.query || {}
     if (!email) {
