@@ -47,6 +47,10 @@ module.exports = app => {
       pass: MAIL_PASS
     }
   })
+
+  app.get('/resetForm', (req, res) => {
+    res.render('sendPswdreset')
+  })
   
   app.get('/reset', async (req, res) => {
     const { email } = req.query || {}
@@ -86,7 +90,7 @@ If you encounter any issue, feel free to email us at inm1-bda@fz-juelich.de`
         html,
       })
       
-      res.status(204).end()
+      res.status(204).end(`Reset email has been sent to your email address.`)
     } catch (e) {
       res.status(500).end(e.toString())
     }
