@@ -78,7 +78,7 @@ var ToolSnap = {
             search.set('width', width)
             search.set('height', height)
 
-            const evSrc = new EventSource(`getHighRes?${search.toString()}`)
+            const evSrc = new EventSource(`getHighResTest?${search.toString()}`)
             evSrc.onmessage = ev => {
               const data = ev.data
               if (/fin\:/.test(data)) {
@@ -94,6 +94,10 @@ var ToolSnap = {
               } else {
                 messageDom.textContent = `Progress: ${data}%`
               }
+            }
+            evSrc.onerror = ev => {
+              evSrc.close()
+              console.error(`error!`, ev)
             }
             
           })

@@ -178,11 +178,11 @@ module.exports = (app) =>{
                     if (closedFlag) return
                     await writesToImage(i * tileSize, j * tileSize, getTileFn(getLevel, i, j, 0))
                     progress ++
-                    res.write(`${Math.round(progress / totalTileNo * 100)}\n`)
+                    res.write(`data: ${Math.round(progress / totalTileNo * 100)}\n\n`)
                 }
             }
             completeFlag = true
-            res.write(`fin:${outputTmpFilename}`)
+            res.write(`data: fin: ${outputTmpFilename}`)
             
         } catch (e) {
             console.error(`error in compositing image`, e)
