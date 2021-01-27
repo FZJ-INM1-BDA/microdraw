@@ -236,6 +236,16 @@
               ],
               "scriptPath": "js/tools/eraser.js",
               "iconPath": "img/eraser.svg"
+            },
+            {
+              "name": "Snap",
+              "id": "snap",
+              "desc": "",
+              "exportedVar": [
+                "ToolSnap"
+              ],
+              "scriptPath": "js/tools/snap.js",
+              "iconPath": "img/snap.svg"
             }
           ]
     }

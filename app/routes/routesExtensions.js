@@ -1,7 +1,7 @@
 const url = require('url')
 const sharp = require('sharp')
 const request = require('request')
-const bodyParser = require('body-parser')
+const crypto = require('crypto')
 
 module.exports = (app) =>{
     app.get('/getTile',function (req,res){
@@ -54,18 +54,54 @@ module.exports = (app) =>{
             })
     })
 
-    app.post('/getHighRes', bodyParser.json(), async (req, res) => {
-        const { snapshotParam, source } = req.body || {}
-        if (!source) {
-            res.status(400).send(`source is required `)
-            return
+    app.get('/getHighRes/:filename', (req, res) => {
+        const { filename } = req.params
+        res.sendFile(
+            path.join(__dirname, filename)
+        )
+        res.on('finish', () => {
+            require('fs').unlink(
+                path.join(__dirname, filename)
+            )
+        })
+    })
+
+    app.get('/getHighRes', async (req, res) => {
+        const { x, y, width, height, level, outputType, jsonSrc, jsonSrcImgId } = req.query || {}
+        
+        for (const val of [x, y, width, height, jsonSrc, jsonSrcImgId] ) {
+            if (val === null || typeof val === 'undefined') {
+                return res.status(400).send(`param missing`)
+            }
         }
+
+        const u = new url.URL(jsonSrc)
+        // hard coding trusted json src
+        if ( u.host !== 'imedv02.ime.kfa-juelich.de:5555') {
+            return res.status(400).send(`jsonSrc has to be from a trusted source`)
+        }
+
+        const { tileSources, imagesMetadata, names } = await new Promise((rs, rj) => {
+            request(u.toString(), (err, resp, body) => {
+                if (err) return rj(err)
+                if (resp.statusCode >= 400) {
+                    return rj(`json server returns error: ${resp.statusCode}`)
+                }
+                rs(JSON.parse(body))
+            })
+        })
+
+        const idx = names.find(name => name === jsonSrcImgId)
+        if (idx < 0) {
+            return res.status(400).send(`cannot find ${jsonSrcImgId} in json`)
+        }
+        const source = tileSources[idx]
 
         /**
          * level is optional
          * x, y, width, height should always be relative to max level
          */
-        const { x, y, width, height, level, outputType } = snapshotParam
+
         const { width: iWidth, height: iHeight, getTileUrl, tileSize } = source
 
         const maxLevel = Math.log(Math.max(iWidth, iHeight)) / Math.log(2)
@@ -79,7 +115,9 @@ module.exports = (app) =>{
             return
         }
 
-        const outputTmpFilename = outputType === 'png' ? 'tmp.png' : 'tmp.tif'
+        const filename = crypto.createHash('md5').update(Date.now().toString()).digest('hex')
+
+        const outputTmpFilename = outputType === 'png' ? `${filename}.png` : `${filename}.tif`
         const methodname = outputType === 'png' ? 'png' : 'tiff'
         const factor = Math.pow(maxLevel - getLevel, 2) 
 
@@ -88,6 +126,27 @@ module.exports = (app) =>{
         const xEnd = Math.ceil( (x + width) / factor / tileSize )
         const yStart = Math.floor( y / factor / tileSize )
         const yEnd = Math.ceil( (y + height) / factor / tileSize )
+
+        /**
+         * send response header
+         */
+        res.setHeader('Cache-control', 'no-cache')
+        res.setHeader('Content-type', 'text/event-stream')
+        res.setHeader('Connection', 'keep-alive')
+        res.flushHeaders()
+
+        const totalTileNo = (xEnd - xStart) * (yEnd - yStart)
+        let progress = 0, completeFlag = false, closedFlag = false
+
+        /**
+         * if sse prematurely ends, remove file
+         */
+        res.on('close', () => {
+            closedFlag = true
+            if (!completeFlag) {
+                require('fs').unlink(outputTmpFilename)
+            }
+        })
 
         await sharp({
             create: {
@@ -116,11 +175,15 @@ module.exports = (app) =>{
         try {
             for (let i = xStart; i <= xEnd; i ++) {
                 for (let j = yStart; j <= yEnd; j++) {
+                    if (closedFlag) return
                     await writesToImage(i * tileSize, j * tileSize, getTileFn(getLevel, i, j, 0))
+                    progress ++
+                    res.write(`${Math.round(progress / totalTileNo * 100)}\n`)
                 }
             }
-            res.setHeader('Content-Disposition', `attachment; filename=${outputTmpFilename}`)
-            res.status(200).sendFile(outputTmpFilename)
+            completeFlag = true
+            res.write(`fin:${outputTmpFilename}`)
+            
         } catch (e) {
             console.error(`error in compositing image`, e)
             res.status(500).send(`error in compositing image, ${e.toString()}`)
