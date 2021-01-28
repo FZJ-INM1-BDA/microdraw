@@ -9,6 +9,12 @@ const asyncWritefile = promisify(fs.writeFile)
 const asyncUnlink = promisify(fs.unlink)
 const LRU = require('lru-cache')
 
+// no concurrency. 
+// high concurrency potentially cause
+sharp.concurrency(1)
+// cache seem to ruin compositing
+sharp.cache(false)
+
 const lruStore = new LRU({
     maxAge: 1000 * 60 * 30, // 30min cache
     dispose: (key, value) => {
