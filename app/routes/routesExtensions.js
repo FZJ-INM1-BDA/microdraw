@@ -125,7 +125,9 @@ module.exports = (app) =>{
 
         const { width: iWidth, height: iHeight, getTileUrl, tileSize } = source
 
-        const maxLevel = Math.log(Math.max(iWidth, iHeight)) / Math.log(2)
+        const maxLevel = Math.ceil(
+            Math.log(Math.max(iWidth, iHeight)) / Math.log(2)
+        )
         const getLevel = level || maxLevel
         if (getLevel > maxLevel) {
             res.status(400).send(`level exceeds max level`)
@@ -158,7 +160,7 @@ module.exports = (app) =>{
         res.setHeader('Connection', 'keep-alive')
         res.flushHeaders()
 
-        const totalTileNo = (xEnd - xStart) * (yEnd - yStart)
+        const totalTileNo = (xEnd - xStart + 1) * (yEnd - yStart + 1)
         let progress = 0, completeFlag = false, closedFlag = false
 
         /**
@@ -183,6 +185,7 @@ module.exports = (app) =>{
         })[methodname]().toFile(outputFilepath)
 
         const writesToImage = (x, y, url) => new Promise((rs, rj) => {
+            console.log(`[getHighRes] getTileAndWriteToImage ${url}`)
             request.get(url, { encoding: null }, async (err, resp, body) => {
                 const buf = sharp(outputFilepath)
                     .composite([{
