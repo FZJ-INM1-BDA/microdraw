@@ -96,7 +96,7 @@ module.exports = (app) =>{
 
         console.log(`[getHighRes] got json src from ${u.toString()}`)
 
-        const idx = names.find(name => name === jsonSrcImgId)
+        const idx = names.findIndex(name => name === jsonSrcImgId)
         if (idx < 0) {
             return res.status(400).send(`cannot find ${jsonSrcImgId} in json`)
         }
