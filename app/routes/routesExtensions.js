@@ -126,7 +126,7 @@ module.exports = (app) =>{
         const methodname = outputType === 'png' ? 'png' : 'tiff'
         const factor = Math.pow(2, maxLevel - getLevel) 
 
-        const getTileFn = eval(getTileUrl)
+        eval(`const getTileFn = ${getTileUrl}`)
         const xStart = Math.floor(Number(x) / factor / tileSize)
         const xEnd = Math.ceil( (Number(x) + Number(width)) / factor / tileSize )
         const yStart = Math.floor( Number(y) / factor / tileSize )
