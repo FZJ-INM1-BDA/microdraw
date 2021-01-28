@@ -2,6 +2,7 @@ const url = require('url')
 const sharp = require('sharp')
 const request = require('request')
 const crypto = require('crypto')
+sharp.cache(false)
 
 module.exports = (app) =>{
     app.get('/getTile',function (req,res){
