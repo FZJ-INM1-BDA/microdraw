@@ -181,14 +181,16 @@ module.exports = (app) =>{
 
         console.log(`[getHighRes] preparing sharp new image`)
 
-        await sharp({
+        const buf = await sharp({
             create: {
                 width: (xEnd - xStart) * tileSize,
                 height: (yEnd - yStart) * tileSize,
                 channels: 4,
                 background: { r: 0, g: 0, b: 0, alpha: 1.0 }
             }
-        })[methodname]().toFile(outputFilepath)
+        })[methodname]().toBuffer()
+
+        await asyncWritefile(outputFilepath, buf, { encoding: null })
 
         const writesToImage = (x, y, url) => new Promise((rs, rj) => {
             console.log(`[getHighRes] getTileAndWriteToImage ${url}`)
