@@ -78,7 +78,7 @@ var ToolSnap = {
             search.set('width', width)
             search.set('height', height)
 
-            const evSrc = new EventSource(`getHighResTest?${search.toString()}`)
+            const evSrc = new EventSource(`getHighRes?${search.toString()}`)
             evSrc.onmessage = ev => {
               const data = ev.data
               if (/fin\:/.test(data)) {
