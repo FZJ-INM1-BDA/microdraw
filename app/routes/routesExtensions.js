@@ -2,6 +2,7 @@ const url = require('url')
 const sharp = require('sharp')
 const request = require('request')
 const crypto = require('crypto')
+const path = require('path')
 const fs = require('fs')
 const { promisify } = require('util')
 const asyncWritefile = promisify(fs.writeFile)
@@ -136,8 +137,9 @@ module.exports = (app) =>{
         }
 
         const filename = crypto.createHash('md5').update(Date.now().toString()).digest('hex')
-
         const outputTmpFilename = outputType === 'png' ? `${filename}.png` : `${filename}.tif`
+        const outputFilepath = path.join(__dirname, outputTmpFilename)
+
         const methodname = outputType === 'png' ? 'png' : 'tiff'
         const factor = Math.pow(2, maxLevel - getLevel) 
 
@@ -165,7 +167,7 @@ module.exports = (app) =>{
         res.on('close', () => {
             closedFlag = true
             if (!completeFlag) {
-                require('fs').unlink(outputTmpFilename, (err) => {})
+                require('fs').unlink(outputFilepath, (err) => {})
             }
         })
 
@@ -178,17 +180,17 @@ module.exports = (app) =>{
                 channels: 4,
                 background: { r: 0, g: 0, b: 0, alpha: 1.0 }
             }
-        })[methodname]().toFile(outputTmpFilename)
+        })[methodname]().toFile(outputFilepath)
 
         const writesToImage = (x, y, url) => new Promise((rs, rj) => {
             request.get(url, { encoding: null }, async (err, resp, body) => {
-                const buf = sharp(outputTmpFilename)
+                const buf = sharp(outputFilepath)
                     .composite([{
                         input: body,
                         top: y,
                         left: x,
                     }])[methodname]().toBuffer()
-                await asyncWritefile(outputTmpFilename, buf)
+                await asyncWritefile(outputFilepath, buf)
                 rs()
             })
         })
@@ -206,7 +208,7 @@ module.exports = (app) =>{
             }
             completeFlag = true
             const key = crypto.createHash('md5').update(Date.now().toString()).digest('hex')
-            lruStore.set(key, outputTmpFilename)
+            lruStore.set(key, outputFilepath)
             res.write(`data: fin: getHighRes/${key}\n\n`)
             res.end()
             
