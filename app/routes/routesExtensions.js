@@ -9,12 +9,6 @@ const asyncWritefile = promisify(fs.writeFile)
 const asyncUnlink = promisify(fs.unlink)
 const LRU = require('lru-cache')
 
-// no concurrency. 
-// high concurrency potentially cause
-sharp.concurrency(1)
-// cache seem to ruin compositing
-sharp.cache(false)
-
 const lruStore = new LRU({
     maxAge: 1000 * 60 * 30, // 30min cache
     dispose: (key, value) => {
@@ -181,6 +175,9 @@ module.exports = (app) =>{
 
         console.log(`[getHighRes] preparing sharp new image`)
 
+        // as we are likely dealing with extremely large files
+        // do not handle in memory
+        // write to disk instead
         const buf = await sharp({
             create: {
                 width: (xEnd - xStart) * tileSize,
@@ -198,12 +195,11 @@ module.exports = (app) =>{
                 if (err) {
                     return rj(err)
                 }
-                console.log(`[getHighRes] getTileAndWriteToImage success`, { headers: resp.headers })
                 const buf = await sharp(outputFilepath)
                     .composite([{
                         input: body,
-                        top: y,
                         left: x,
+                        top: y,
                     }])[methodname]().toBuffer()
                 await asyncWritefile(outputFilepath, buf, { encoding: null })
                 rs()
@@ -228,8 +224,10 @@ module.exports = (app) =>{
             res.end()
             
         } catch (e) {
+            asyncUnlink(outputFilepath)
             console.error(`error in compositing image`, e)
-            res.status(500).send(`error in compositing image, ${e.toString()}`)
+            res.write(`data: err: ${e.toString()}`)
+            res.end()
         }
         
     })
