@@ -68,8 +68,9 @@ module.exports = (app) =>{
     })
 
     app.get('/getHighRes', async (req, res) => {
+        console.log(`[getHighRes] called`)
         const { x, y, width, height, level, outputType, jsonSrc, jsonSrcImgId } = req.query || {}
-        
+        console.log(`[getHighRes] param: \n ${JSON.stringify({x, y, width, height, level, outputType, jsonSrc, jsonSrcImgId}, null, 2)}`)
         for (const val of [x, y, width, height, jsonSrc, jsonSrcImgId] ) {
             if (val === null || typeof val === 'undefined') {
                 return res.status(400).send(`param missing`)
@@ -83,6 +84,7 @@ module.exports = (app) =>{
         }
 
         const { tileSources, imagesMetadata, names } = await new Promise((rs, rj) => {
+            console.log(`[getHighRes] getting json src from ${u.toString()}`)
             request(u.toString(), (err, resp, body) => {
                 if (err) return rj(err)
                 if (resp.statusCode >= 400) {
@@ -91,6 +93,8 @@ module.exports = (app) =>{
                 rs(JSON.parse(body))
             })
         })
+
+        console.log(`[getHighRes] got json src from ${u.toString()}`)
 
         const idx = names.find(name => name === jsonSrcImgId)
         if (idx < 0) {
@@ -149,6 +153,8 @@ module.exports = (app) =>{
             }
         })
 
+        console.log(`[getHighRes] preparing sharp new image`)
+
         await sharp({
             create: {
                 width: (xEnd - xStart) * tileSize,
@@ -177,6 +183,8 @@ module.exports = (app) =>{
             for (let i = xStart; i <= xEnd; i ++) {
                 for (let j = yStart; j <= yEnd; j++) {
                     if (closedFlag) return
+
+                    console.log(`[getHighRes] writing to image ${i}, ${j}, progress ${progress / totalTileNo}`)
                     await writesToImage(i * tileSize, j * tileSize, getTileFn(getLevel, i, j, 0))
                     progress ++
                     res.write(`data: ${Math.round(progress / totalTileNo * 100)}\n\n`)
