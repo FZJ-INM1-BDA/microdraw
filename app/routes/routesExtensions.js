@@ -61,7 +61,8 @@ module.exports = (app) =>{
         )
         res.on('finish', () => {
             require('fs').unlink(
-                path.join(__dirname, filename)
+                path.join(__dirname, filename),
+                (err) => {}
             )
         })
     })
@@ -119,13 +120,13 @@ module.exports = (app) =>{
 
         const outputTmpFilename = outputType === 'png' ? `${filename}.png` : `${filename}.tif`
         const methodname = outputType === 'png' ? 'png' : 'tiff'
-        const factor = Math.pow(maxLevel - getLevel, 2) 
+        const factor = Math.pow(2, maxLevel - getLevel) 
 
         const getTileFn = eval(getTileUrl)
-        const xStart = Math.floor(x / factor / tileSize)
-        const xEnd = Math.ceil( (x + width) / factor / tileSize )
-        const yStart = Math.floor( y / factor / tileSize )
-        const yEnd = Math.ceil( (y + height) / factor / tileSize )
+        const xStart = Math.floor(Number(x) / factor / tileSize)
+        const xEnd = Math.ceil( (Number(x) + Number(width)) / factor / tileSize )
+        const yStart = Math.floor( Number(y) / factor / tileSize )
+        const yEnd = Math.ceil( (Number(y) + Number(height)) / factor / tileSize )
 
         /**
          * send response header
@@ -144,7 +145,7 @@ module.exports = (app) =>{
         res.on('close', () => {
             closedFlag = true
             if (!completeFlag) {
-                require('fs').unlink(outputTmpFilename)
+                require('fs').unlink(outputTmpFilename, (err) => {})
             }
         })
 
