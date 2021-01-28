@@ -194,14 +194,18 @@ module.exports = (app) =>{
 
         const writesToImage = (x, y, url) => new Promise((rs, rj) => {
             console.log(`[getHighRes] getTileAndWriteToImage ${url}`)
-            request.get(url, { encoding: null }, async (err, resp, body) => {
-                const buf = sharp(outputFilepath)
+            request.get({ encoding: null, url }, async (err, resp, body) => {
+                if (err) {
+                    return rj(err)
+                }
+                console.log(`[getHighRes] getTileAndWriteToImage success`, { headers: resp.headers })
+                const buf = await sharp(outputFilepath)
                     .composite([{
                         input: body,
                         top: y,
                         left: x,
                     }])[methodname]().toBuffer()
-                await asyncWritefile(outputFilepath, buf)
+                await asyncWritefile(outputFilepath, buf, { encoding: null })
                 rs()
             })
         })
