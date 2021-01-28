@@ -2,7 +2,22 @@ const url = require('url')
 const sharp = require('sharp')
 const request = require('request')
 const crypto = require('crypto')
-sharp.cache(false)
+const fs = require('fs')
+const { promisify } = require('util')
+const asyncWritefile = promisify(fs.writeFile)
+const asyncUnlink = promisify(fs.unlink)
+const LRU = require('lru-cache')
+
+const lruStore = new LRU({
+    maxAge: 1000 * 60 * 30, // 30min cache
+    dispose: (key, value) => {
+        try {
+            asyncUnlink(value) // on key del, remove unused file
+        } catch (e) {
+
+        }
+    }
+})
 
 module.exports = (app) =>{
     app.get('/getTile',function (req,res){
@@ -55,18 +70,17 @@ module.exports = (app) =>{
             })
     })
 
-    app.get('/getHighRes/:filename', (req, res) => {
-        const { filename } = req.params
-        res.sendFile(
-            path.join(__dirname, filename)
-        )
+    app.get('/getHighRes/:key', (req, res) => {
+        const { key } = req.params
+        const filename = lruStore.get(key)
+        if (!filename) return res.status(404).end()
+
+        res.sendFile(filename)
         res.on('finish', () => {
-            require('fs').unlink(
-                path.join(__dirname, filename),
-                (err) => {}
-            )
+            lruStore.del(key) // file will get unlinked on dispose of lru key
         })
     })
+
 
     app.get('/getHighRes', async (req, res) => {
         console.log(`[getHighRes] called`)
@@ -86,7 +100,7 @@ module.exports = (app) =>{
 
         const { tileSources, imagesMetadata, names } = await new Promise((rs, rj) => {
             console.log(`[getHighRes] getting json src from ${u.toString()}`)
-            request(u.toString(), (err, resp, body) => {
+            request(u.toString(), { encoding: null }, (err, resp, body) => {
                 if (err) return rj(err)
                 if (resp.statusCode >= 400) {
                     return rj(`json server returns error: ${resp.statusCode}`)
@@ -167,17 +181,15 @@ module.exports = (app) =>{
         })[methodname]().toFile(outputTmpFilename)
 
         const writesToImage = (x, y, url) => new Promise((rs, rj) => {
-            request.get(url, async (err, resp, body) => {
-                sharp(outputTmpFilename)
+            request.get(url, { encoding: null }, async (err, resp, body) => {
+                const buf = sharp(outputTmpFilename)
                     .composite([{
                         input: body,
                         top: y,
                         left: x,
-                        blend: 'clear'
-                    }])[methodname]().toFile(outputTmpFilename, (err, info) => {
-                        if (err) return rj(err)
-                        return rs()
-                    })
+                    }])[methodname]().toBuffer()
+                await asyncWritefile(outputTmpFilename, buf)
+                rs()
             })
         })
 
@@ -193,7 +205,10 @@ module.exports = (app) =>{
                 }
             }
             completeFlag = true
-            res.write(`data: fin: ${outputTmpFilename}`)
+            const key = crypto.createHash('md5').update(Date.now().toString()).digest('hex')
+            lruStore.set(key, outputTmpFilename)
+            res.write(`data: fin: getHighRes/${key}\n\n`)
+            res.end()
             
         } catch (e) {
             console.error(`error in compositing image`, e)

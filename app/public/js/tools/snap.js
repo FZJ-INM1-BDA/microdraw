@@ -82,14 +82,15 @@ var ToolSnap = {
             evSrc.onmessage = ev => {
               const data = ev.data
               if (/fin\:/.test(data)) {
-                const match = /^fin\:(.+)$/.exec(data)
+                const match = /^fin\:\s*(.+)$/.exec(data)
                 downloadUrl = match[1]
                 const downloadBtn = document.createElement('a')
                 downloadBtn.href = downloadUrl
                 downloadBtn.target = '_blank'
                 downloadBtn.download = 'hippo.png'
                 downloadBtn.textContent = 'save to local'
-                messageDom.appendChild()
+                messageDom.textContent = ``
+                messageDom.appendChild(downloadBtn)
                 evSrc.close()
               } else {
                 messageDom.textContent = `Progress: ${data}%`
