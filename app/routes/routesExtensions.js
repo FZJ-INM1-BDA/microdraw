@@ -7,6 +7,7 @@ const fs = require('fs')
 const { promisify } = require('util')
 const asyncWritefile = promisify(fs.writeFile)
 const asyncUnlink = promisify(fs.unlink)
+const asyncRead = promisify(fs.readFile)
 const LRU = require('lru-cache')
 
 const lruStore = new LRU({
@@ -169,7 +170,7 @@ module.exports = (app) =>{
         res.on('close', () => {
             closedFlag = true
             if (!completeFlag) {
-                require('fs').unlink(outputFilepath, (err) => {})
+                asyncUnlink(outputFilepath)
             }
         })
 
@@ -195,7 +196,8 @@ module.exports = (app) =>{
                 if (err) {
                     return rj(err)
                 }
-                const buf = await sharp(outputFilepath)
+                const inputBuf = await asyncRead(outputFilepath, { encoding: null })
+                const buf = await sharp(inputBuf)
                     .composite([{
                         input: body,
                         left: x,
@@ -224,7 +226,6 @@ module.exports = (app) =>{
             res.end()
             
         } catch (e) {
-            asyncUnlink(outputFilepath)
             console.error(`error in compositing image`, e)
             res.write(`data: err: ${e.toString()}`)
             res.end()
