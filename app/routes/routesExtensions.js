@@ -159,7 +159,7 @@ module.exports = (app) =>{
         res.setHeader('Connection', 'keep-alive')
         res.flushHeaders()
 
-        const totalTileNo = (xEnd - xStart + 1) * (yEnd - yStart + 1)
+        const totalTileNo = (xEnd - xStart ) * (yEnd - yStart )
         let progress = 0, completeFlag = false, closedFlag = false
 
         /**
@@ -182,8 +182,8 @@ module.exports = (app) =>{
             // for larger number of tiles, this can possibly lead to OOM
             // if that's the case, try write to disk, but set sharp.cache(false) at global
             // also try using tiff, which may have some advantages (?)
-            for (let i = xStart; i <= xEnd; i ++) {
-                for (let j = yStart; j <= yEnd; j++) {
+            for (let i = xStart; i < xEnd; i ++) {
+                for (let j = yStart; j < yEnd; j++) {
                     queue.push({
                         i,
                         j,
@@ -203,8 +203,8 @@ module.exports = (app) =>{
                         console.log(`[getHighRes] got image tile at ${i}, ${j}, progress ${progress / totalTileNo}`)
                         res.write(`data: ${Math.round(progress / totalTileNo * 100)}\n\n`)
                         rs({
-                            left: i * tileSize,
-                            top: j * tileSize,
+                            left: (i - xStart) * tileSize,
+                            top: (j - yStart) * tileSize,
                             input: body
                         })
                     })
