@@ -5,9 +5,7 @@ const crypto = require('crypto')
 const path = require('path')
 const fs = require('fs')
 const { promisify } = require('util')
-const asyncWritefile = promisify(fs.writeFile)
 const asyncUnlink = promisify(fs.unlink)
-const asyncRead = promisify(fs.readFile)
 const LRU = require('lru-cache')
 
 const lruStore = new LRU({
@@ -176,49 +174,52 @@ module.exports = (app) =>{
 
         console.log(`[getHighRes] preparing sharp new image`)
 
-        // as we are likely dealing with extremely large files
-        // do not handle in memory
-        // write to disk instead
-        const buf = await sharp({
-            create: {
-                width: (xEnd - xStart) * tileSize,
-                height: (yEnd - yStart) * tileSize,
-                channels: 4,
-                background: { r: 0, g: 0, b: 0, alpha: 1.0 }
-            }
-        })[methodname]().toBuffer()
-
-        await asyncWritefile(outputFilepath, buf, { encoding: null })
-
-        const writesToImage = (x, y, url) => new Promise((rs, rj) => {
-            console.log(`[getHighRes] getTileAndWriteToImage ${url}`)
-            request.get({ encoding: null, url }, async (err, resp, body) => {
-                if (err) {
-                    return rj(err)
-                }
-                const inputBuf = await asyncRead(outputFilepath, { encoding: null })
-                const buf = await sharp(inputBuf)
-                    .composite([{
-                        input: body,
-                        left: x,
-                        top: y,
-                    }])[methodname]().toBuffer()
-                await asyncWritefile(outputFilepath, buf, { encoding: null })
-                rs()
-            })
-        })
-
         try {
+
+            const queue = []
+
+            // going to try to hold all tiles in memory
+            // for larger number of tiles, this can possibly lead to OOM
+            // if that's the case, try write to disk, but set sharp.cache(false) at global
+            // also try using tiff, which may have some advantages (?)
             for (let i = xStart; i <= xEnd; i ++) {
                 for (let j = yStart; j <= yEnd; j++) {
-                    if (closedFlag) return
-
-                    console.log(`[getHighRes] writing to image ${i}, ${j}, progress ${progress / totalTileNo}`)
-                    await writesToImage(i * tileSize, j * tileSize, getTileFn(getLevel, i, j, 0))
-                    progress ++
-                    res.write(`data: ${Math.round(progress / totalTileNo * 100)}\n\n`)
+                    queue.push({
+                        i,
+                        j,
+                        url: getTileFn(getLevel, i, j, 0)
+                    })
                 }
             }
+
+            const arr = await Promise.all(
+                queue.map(({ i, j, url }) => new Promise((rs, rj) => {
+                    request.get({ url, encoding: null }, (err, resp, body) => {
+
+                        if (closedFlag) return rj('request has already been closed')
+                        if (err) return rj(err)
+
+                        progress ++
+                        console.log(`[getHighRes] got image tile at ${i}, ${j}, progress ${progress / totalTileNo}`)
+                        res.write(`data: ${Math.round(progress / totalTileNo * 100)}\n\n`)
+                        rs({
+                            left: i * tileSize,
+                            top: j * tileSize,
+                            input: body
+                        })
+                    })
+                }))
+            )
+
+            await sharp({
+                create: {
+                    width: (xEnd - xStart) * tileSize,
+                    height: (yEnd - yStart) * tileSize,
+                    channels: 4,
+                    background: { r: 0, g: 0, b: 0, alpha: 1.0 }
+                }
+            }).composite(arr)[methodname]().toFile(outputFilepath)
+
             completeFlag = true
             const key = crypto.createHash('md5').update(Date.now().toString()).digest('hex')
             lruStore.set(key, outputFilepath)
