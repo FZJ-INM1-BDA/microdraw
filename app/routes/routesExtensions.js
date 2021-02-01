@@ -7,6 +7,7 @@ const fs = require('fs')
 const { promisify } = require('util')
 const asyncUnlink = promisify(fs.unlink)
 const LRU = require('lru-cache')
+sharp.cache(false)
 
 const lruStore = new LRU({
     maxAge: 1000 * 60 * 30, // 30min cache
@@ -84,8 +85,8 @@ module.exports = (app) =>{
 
     app.get('/getHighRes', async (req, res) => {
         console.log(`[getHighRes] called`)
-        const { x, y, width, height, level, outputType, jsonSrc, jsonSrcImgId } = req.query || {}
-        console.log(`[getHighRes] param: \n ${JSON.stringify({x, y, width, height, level, outputType, jsonSrc, jsonSrcImgId}, null, 2)}`)
+        const { x, y, width, height, level, jsonSrc, jsonSrcImgId } = req.query || {}
+        console.log(`[getHighRes] param: \n ${JSON.stringify({x, y, width, height, level, jsonSrc, jsonSrcImgId}, null, 2)}`)
         for (const val of [x, y, width, height, jsonSrc, jsonSrcImgId] ) {
             if (val === null || typeof val === 'undefined') {
                 return res.status(400).send(`param missing`)
@@ -132,16 +133,11 @@ module.exports = (app) =>{
             res.status(400).send(`level exceeds max level`)
             return
         }
-        if (!!outputType && outputType !== 'tif' && outputType !== 'png'){
-            res.status(400).send(`outputtype needs to be either tif or png`)
-            return
-        }
 
         const filename = crypto.createHash('md5').update(Date.now().toString()).digest('hex')
-        const outputTmpFilename = outputType === 'png' ? `${filename}.png` : `${filename}.tif`
+        const outputTmpFilename = `${filename}.tif`
         const outputFilepath = path.join(__dirname, outputTmpFilename)
 
-        const methodname = outputType === 'png' ? 'png' : 'tiff'
         const factor = Math.pow(2, maxLevel - getLevel) 
 
         let getTileFn
@@ -174,9 +170,21 @@ module.exports = (app) =>{
 
         console.log(`[getHighRes] preparing sharp new image`)
 
-        try {
+        await sharp({
+            create: {
+                width: (xEnd - xStart) * tileSize,
+                height: (yEnd - yStart) * tileSize,
+                channels: 4,
+                background: { r: 0, g: 0, b: 0, alpha: 1.0 }
+            }
+        }).tiff({
+            tile: true,
+            tileWidth: tileSize,
+            tileHeight: tileSize,
+            compression: 'lzw'
+        }).toFile(outputFilepath)
 
-            const queue = []
+        try {
 
             // going to try to hold all tiles in memory
             // for larger number of tiles, this can possibly lead to OOM
@@ -184,41 +192,27 @@ module.exports = (app) =>{
             // also try using tiff, which may have some advantages (?)
             for (let i = xStart; i < xEnd; i ++) {
                 for (let j = yStart; j < yEnd; j++) {
-                    queue.push({
-                        i,
-                        j,
-                        url: getTileFn(getLevel, i, j, 0)
+                    await new Promise((rs, rj) => {
+                        request.get({ url, encoding: null }, (err, resp, body) => {
+    
+                            if (closedFlag) return rj('request has already been closed')
+                            if (err) return rj(err)
+
+                            await sharp(outputFilepath)
+                                .composite([{
+                                    input: body,
+                                    left: (i - xStart) * tileSize,
+                                    top: (j - yStart) * tileSize,
+                                }]).toFile(outputFilepath)
+    
+                            progress ++
+                            console.log(`[getHighRes] got image tile at ${i}, ${j}, progress ${progress / totalTileNo}`)
+                            res.write(`data: ${Math.round(progress / totalTileNo * 100)}\n\n`)
+                            rs()
+                        })
                     })
                 }
             }
-
-            const arr = await Promise.all(
-                queue.map(({ i, j, url }) => new Promise((rs, rj) => {
-                    request.get({ url, encoding: null }, (err, resp, body) => {
-
-                        if (closedFlag) return rj('request has already been closed')
-                        if (err) return rj(err)
-
-                        progress ++
-                        console.log(`[getHighRes] got image tile at ${i}, ${j}, progress ${progress / totalTileNo}`)
-                        res.write(`data: ${Math.round(progress / totalTileNo * 100)}\n\n`)
-                        rs({
-                            left: (i - xStart) * tileSize,
-                            top: (j - yStart) * tileSize,
-                            input: body
-                        })
-                    })
-                }))
-            )
-
-            await sharp({
-                create: {
-                    width: (xEnd - xStart) * tileSize,
-                    height: (yEnd - yStart) * tileSize,
-                    channels: 4,
-                    background: { r: 0, g: 0, b: 0, alpha: 1.0 }
-                }
-            }).composite(arr)[methodname]().toFile(outputFilepath)
 
             completeFlag = true
             const key = crypto.createHash('md5').update(Date.now().toString()).digest('hex')

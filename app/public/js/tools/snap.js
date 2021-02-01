@@ -64,7 +64,6 @@ var ToolSnap = {
 
             const jsonSrc = Microdraw.params.source
             const jsonSrcImgId = Microdraw.currentImage
-            const outputType = 'png' // 'tiff' | 'png'
             const x = Math.min(fixedStartPt.x, fixedEndPt.x)
             const y = Math.min(fixedStartPt.y, fixedEndPt.y)
             const width = Math.abs(fixedEndPt.x - fixedStartPt.x)
@@ -72,7 +71,6 @@ var ToolSnap = {
 
             search.set('jsonSrc', jsonSrc)
             search.set('jsonSrcImgId', jsonSrcImgId)
-            search.set('outputType', outputType)
             search.set('x', x)
             search.set('y', y)
             search.set('width', width)
