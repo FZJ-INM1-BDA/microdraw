@@ -5,6 +5,7 @@ const crypto = require('crypto')
 const path = require('path')
 const fs = require('fs')
 const { promisify } = require('util')
+const asyncWrite = promisify(fs.writeFile)
 const asyncUnlink = promisify(fs.unlink)
 const LRU = require('lru-cache')
 sharp.cache(false)
@@ -170,19 +171,31 @@ module.exports = (app) =>{
 
         console.log(`[getHighRes] preparing sharp new image`)
 
-        await sharp({
+        /**
+         * tiff options seems to cause more issues than otherwise
+         * do not use for now.
+         * 
+         * for a complete list of options:
+         * https://sharp.pixelplumbing.com/api-output#tiff
+         */
+        const tiffOptions = {
+            // tile: true,
+            // tileWidth: tileSize,
+            // tileHeight: tileSize,
+            // compression: 'none',
+            // predictor: 'float'
+        }
+
+        const buf = await sharp({
             create: {
                 width: (xEnd - xStart) * tileSize,
                 height: (yEnd - yStart) * tileSize,
                 channels: 4,
                 background: { r: 0, g: 0, b: 0, alpha: 1.0 }
             }
-        }).tiff({
-            tile: true,
-            tileWidth: tileSize,
-            tileHeight: tileSize,
-            compression: 'lzw'
-        }).toFile(outputFilepath)
+        }).tiff(tiffOptions).toBuffer()
+
+        await asyncWrite(outputFilepath, buf)
 
         try {
 
@@ -193,17 +206,27 @@ module.exports = (app) =>{
             for (let i = xStart; i < xEnd; i ++) {
                 for (let j = yStart; j < yEnd; j++) {
                     await new Promise((rs, rj) => {
-                        request.get({ url, encoding: null }, (err, resp, body) => {
+                        const url = getTileFn(getLevel, i, j, 0)
+                        request.get({ url, encoding: null }, async (err, resp, body) => {
     
                             if (closedFlag) return rj('request has already been closed')
                             if (err) return rj(err)
+                            try {
 
-                            await sharp(outputFilepath)
-                                .composite([{
-                                    input: body,
-                                    left: (i - xStart) * tileSize,
-                                    top: (j - yStart) * tileSize,
-                                }]).toFile(outputFilepath)
+                                const inputBuf = await sharp(body).tiff(tiffOptions).toBuffer()
+    
+                                const buf2 = await sharp(outputFilepath)
+                                    .composite([{
+                                        input: inputBuf,
+                                        left: (i - xStart) * tileSize,
+                                        top: (j - yStart) * tileSize,
+                                    }]).tiff(tiffOptions).toBuffer()
+                                
+                                await asyncWrite(outputFilepath, buf2)
+                            } catch (e) {
+                                console.log(e)
+                                rj(e)
+                            }
     
                             progress ++
                             console.log(`[getHighRes] got image tile at ${i}, ${j}, progress ${progress / totalTileNo}`)
@@ -222,7 +245,7 @@ module.exports = (app) =>{
             
         } catch (e) {
             console.error(`error in compositing image`, e)
-            res.write(`data: err: ${e.toString()}`)
+            res.write(`data: err: ${e.toString()}\n\n`)
             res.end()
         }
         

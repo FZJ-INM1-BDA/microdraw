@@ -85,7 +85,7 @@ var ToolSnap = {
                 const downloadBtn = document.createElement('a')
                 downloadBtn.href = downloadUrl
                 downloadBtn.target = '_blank'
-                downloadBtn.download = 'hippo.png'
+                downloadBtn.download = 'hippo.tiff'
                 downloadBtn.textContent = 'save to local'
                 messageDom.textContent = ``
                 messageDom.appendChild(downloadBtn)
