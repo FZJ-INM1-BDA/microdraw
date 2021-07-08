@@ -54,50 +54,39 @@ var ToolSnap = {
               console.error(`messagePr is already defined... terminating`)
               return
             }
+            const { maxLevel } = Microdraw.viewer.source
+            const tileWidth = Microdraw.viewer.source.getTileWidth()
+
+            const x = Math.floor( Math.min(fixedStartPt.x, fixedEndPt.x) / tileWidth)
+            const y = Math.floor( Math.min(fixedStartPt.y, fixedEndPt.y) / tileWidth)
+            const x1 = Math.ceil( Math.max(fixedStartPt.x, fixedEndPt.x) / tileWidth)
+            const y1 = Math.ceil( Math.max(fixedStartPt.y, fixedEndPt.y) / tileWidth)
+            const size_x = x1 - x
+            const size_y = y1 - y
+
+            /**
+             * TODO this is ugly, but... oh well
+             */
+
+            const url = Microdraw.viewer.source.getTileUrl(maxLevel,1,1,0)
+            const getCropUrl = new URL(url)
+            const s = getCropUrl.searchParams
+            s.set('x', x)
+            s.set('y', y)
+            s.set('size_x', size_x)
+            s.set('size_y', size_y)
 
             const messageDom = document.createElement('div')
-
             messagePr = hippoDrawBox.showMessage(messageDom)
             messagePr.then(() => messagePr = null).catch(() => messagePr = null)
 
-            const search = new URLSearchParams()
-
-            const jsonSrc = Microdraw.params.source
-            const jsonSrcImgId = Microdraw.currentImage
-            const x = Math.min(fixedStartPt.x, fixedEndPt.x)
-            const y = Math.min(fixedStartPt.y, fixedEndPt.y)
-            const width = Math.abs(fixedEndPt.x - fixedStartPt.x)
-            const height = Math.abs(fixedEndPt.y - fixedStartPt.y)
-
-            search.set('jsonSrc', jsonSrc)
-            search.set('jsonSrcImgId', jsonSrcImgId)
-            search.set('x', x)
-            search.set('y', y)
-            search.set('width', width)
-            search.set('height', height)
-
-            const evSrc = new EventSource(`getHighRes?${search.toString()}`)
-            evSrc.onmessage = ev => {
-              const data = ev.data
-              if (/fin\:/.test(data)) {
-                const match = /^fin\:\s*(.+)$/.exec(data)
-                downloadUrl = match[1]
-                const downloadBtn = document.createElement('a')
-                downloadBtn.href = downloadUrl
-                downloadBtn.target = '_blank'
-                downloadBtn.download = 'hippo.tiff'
-                downloadBtn.textContent = 'save to local'
-                messageDom.textContent = ``
-                messageDom.appendChild(downloadBtn)
-                evSrc.close()
-              } else {
-                messageDom.textContent = `Progress: ${data}%`
-              }
-            }
-            evSrc.onerror = ev => {
-              evSrc.close()
-              console.error(`error!`, ev)
-            }
+            downloadUrl = getCropUrl.toString()
+            const downloadBtn = document.createElement('a')
+            downloadBtn.href = getCropUrl.toString()
+            downloadBtn.target = '_blank'
+            downloadBtn.download = 'hippo.png'
+            downloadBtn.textContent = 'left click/right click -> save link as'
+            messageDom.appendChild(downloadBtn)
             
           })
         })
