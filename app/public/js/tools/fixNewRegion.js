@@ -42,7 +42,7 @@ var ToolFixNewRegion = {
         return
       }
 
-      filteredList = Microdraw._otherProperties.reduce((acc, curr) => {
+      filteredList = (Microdraw._otherProperties || []).reduce((acc, curr) => {
         const exists = acc.find(({ id }) => id === curr.id )
         return exists ? acc : acc.concat(curr)
       }, [])
@@ -484,7 +484,7 @@ var ToolFixNewRegion = {
               : Microdraw._otherProperties.findIndex(metadata => {
                 return cvtMetadataToDisplayName(metadata) === this.placeholder
               })
-            this.rawarray = Microdraw._otherProperties
+            this.rawarray = (Microdraw._otherProperties || [])
               // remove none first duplicates
               .filter(({ id }, idx, arr) => !(arr.findIndex(({ id: _id }) => id === _id) < idx) )
               .map(metadata => cvtMetadataToDisplayName(metadata))
